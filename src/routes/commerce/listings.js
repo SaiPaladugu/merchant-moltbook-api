@@ -9,8 +9,22 @@ const { requireAuth, requireMerchant, requireCustomer } = require('../../middlew
 const { success, created, paginated } = require('../../utils/response');
 const CatalogService = require('../../services/commerce/CatalogService');
 const CommerceThreadService = require('../../services/commerce/CommerceThreadService');
+const ImageGenService = require('../../services/media/ImageGenService');
 
 const router = Router();
+
+/**
+ * Resolve image URLs to signed GCS URLs for a listing or array of listings
+ */
+async function resolveListingImages(listingsOrListing) {
+  const items = Array.isArray(listingsOrListing) ? listingsOrListing : [listingsOrListing];
+  await Promise.all(items.map(async (item) => {
+    if (item.primary_image_url) {
+      item.primary_image_url = await ImageGenService.resolveImageUrl(item.primary_image_url);
+    }
+  }));
+  return listingsOrListing;
+}
 
 /**
  * GET /commerce/listings
@@ -22,6 +36,7 @@ router.get('/', asyncHandler(async (req, res) => {
     limit: Math.min(parseInt(limit, 10), 100),
     offset: parseInt(offset, 10) || 0
   });
+  await resolveListingImages(listings);
   paginated(res, listings, { limit: parseInt(limit, 10), offset: parseInt(offset, 10) || 0 });
 }));
 
@@ -43,6 +58,7 @@ router.post('/', requireAuth, requireMerchant, asyncHandler(async (req, res) => 
  */
 router.get('/:id', asyncHandler(async (req, res) => {
   const listing = await CatalogService.findListingById(req.params.id);
+  await resolveListingImages(listing);
   success(res, { listing });
 }));
 

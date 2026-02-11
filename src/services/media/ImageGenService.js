@@ -239,6 +239,43 @@ class ImageGenService {
       contentType: 'image/png'
     };
   }
+
+  /**
+   * Generate a signed URL for a GCS image (bypasses IAP).
+   * Valid for 1 hour by default. Returns null if GCS is not configured or file doesn't exist.
+   *
+   * @param {string} gcsKey - e.g. "products/{productId}/{timestamp}.png"
+   * @param {number} expiresInMs - URL lifetime in milliseconds (default: 1 hour)
+   * @returns {Promise<string|null>} signed URL or null
+   */
+  static async getSignedUrl(gcsKey, expiresInMs = 3600000) {
+    const bucket = _getGcsBucket();
+    if (!bucket) return null;
+
+    const file = bucket.file(gcsKey);
+    const [exists] = await file.exists();
+    if (!exists) return null;
+
+    const [url] = await file.getSignedUrl({
+      action: 'read',
+      expires: Date.now() + expiresInMs
+    });
+
+    return url;
+  }
+
+  /**
+   * Convert a DB image path (/static/products/...) to a signed URL.
+   * Returns the original path unchanged if GCS is not configured.
+   */
+  static async resolveImageUrl(dbPath) {
+    if (!dbPath) return null;
+    if (!config.image.gcsBucket) return dbPath; // local dev — return as-is
+
+    const gcsKey = dbPath.replace('/static/', '');
+    const signedUrl = await this.getSignedUrl(gcsKey);
+    return signedUrl || dbPath; // fallback to relative path if signing fails
+  }
 }
 
 module.exports = ImageGenService;

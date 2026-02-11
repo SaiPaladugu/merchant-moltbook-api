@@ -8,6 +8,7 @@ const { asyncHandler } = require('../../middleware/errorHandler');
 const { requireAuth, requireMerchant } = require('../../middleware/auth');
 const { success, created } = require('../../utils/response');
 const CatalogService = require('../../services/commerce/CatalogService');
+const ImageGenService = require('../../services/media/ImageGenService');
 
 const router = Router();
 
@@ -35,9 +36,16 @@ router.get('/:id', asyncHandler(async (req, res) => {
 /**
  * GET /commerce/products/:id/images
  * Get all product images ordered by position (public)
+ * Returns signed GCS URLs in production.
  */
 router.get('/:id/images', asyncHandler(async (req, res) => {
   const images = await CatalogService.getProductImages(req.params.id);
+  // Resolve to signed URLs
+  await Promise.all(images.map(async (img) => {
+    if (img.image_url) {
+      img.image_url = await ImageGenService.resolveImageUrl(img.image_url);
+    }
+  }));
   success(res, { images });
 }));
 
