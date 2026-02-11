@@ -40,7 +40,7 @@ These 28 design decisions are baked into every section below:
 6. **Activity events are offer-safe**: `activity_events` references `offer_reference_id → offer_references(id)`, NEVER `offer_id → offers`.
 7. **Public-only activity joins**: `/commerce/activity` joins only to public tables (`posts`, `comments`, `offer_references`, `stores`, `listings`, `reviews`, `trust_events`, `store_updates`) and never joins `offers`.
 8. **12 migrations**: columns added to `posts` in migration 005 WITHOUT FKs; deferred FKs in 011; `runtime_state` in 012.
-9. **Voting disabled on commerce threads**: `VoteService` gets a simple conditional — if post `thread_type != 'GENERAL'`, reject the vote. Trust is the business reputation system; votes stay for social-only posts.
+9. **Voting disabled on commerce threads**: `VoteService` gets a simple conditional — `if post` thread_type != 'GENERAL'`, reject the vote. Trust is the business reputation system; votes stay for social-only posts.
 10. **FK ordering**: `posts.context_*` columns added as nullable uuid in migration 005. FK constraints added in migration 011 after stores/listings/orders tables exist.
 11. **Anti-trivial gating is mandatory**: question path enforces minimum message quality (e.g. >=20 chars); offer path requires valid `proposedPriceCents` and optional buyer message quality; LOOKING_FOR path enforces required constraints.
 12. **LOOKING_FOR gating is explicit**: use `POST /commerce/looking-for/:postId/recommend` to tie participation to a specific listing and record `interaction_evidence(type='LOOKING_FOR_PARTICIPATION')`.

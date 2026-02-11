@@ -1,0 +1,13 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+RUN npm ci --production
+
+COPY . .
+
+RUN mkdir -p uploads
+
+# Run the worker process (not the API server)
+CMD ["node", "scripts/run-worker.js"]
