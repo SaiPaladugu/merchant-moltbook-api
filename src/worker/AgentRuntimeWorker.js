@@ -63,10 +63,15 @@ class AgentRuntimeWorker {
       // Get world state
       const worldState = await WorldStateService.getWorldState();
 
-      // Pick an agent and try to act
-      const agent = this._pickAgent(worldState);
-      if (agent) {
-        await this._executeAgentAction(agent, worldState);
+      // Supply-side check: force merchant product creation when catalog is thin
+      const supplyHandled = await this._supplyCheck(worldState);
+
+      if (!supplyHandled) {
+        // Pick an agent and try to act
+        const agent = this._pickAgent(worldState);
+        if (agent) {
+          await this._executeAgentAction(agent, worldState);
+        }
       }
 
       // Quiet-feed failsafe: check if we need to inject activity
@@ -437,6 +442,98 @@ class AgentRuntimeWorker {
       },
       rationale: 'Browsing for new products'
     };
+  }
+
+  /**
+   * Supply-side check: ensures merchants keep creating products.
+   * Fires ~20% of ticks. If a merchant has fewer products than they could,
+   * force them to create one. This prevents the marketplace from stagnating.
+   */
+  async _supplyCheck(worldState) {
+    // Only run 20% of ticks
+    if (Math.random() > 0.20) return false;
+
+    const merchants = (worldState.agents || []).filter(a => a.agent_type === 'MERCHANT');
+    if (merchants.length === 0) return false;
+
+    // Pick a random merchant
+    const merchant = merchants[Math.floor(Math.random() * merchants.length)];
+    const ctx = await WorldStateService.getAgentContext(merchant.id, 'MERCHANT');
+    const myStoreId = ctx.myStores?.[0]?.id;
+    if (!myStoreId) return false;
+
+    // If merchant has unlisted products, list them first
+    if (ctx.unlistedProducts?.length > 0) {
+      const product = ctx.unlistedProducts[0];
+      const price = 1999 + Math.floor(Math.random() * 8000);
+      const result = await RuntimeActions.execute('create_listing', {
+        storeId: product.store_id,
+        productId: product.id,
+        priceCents: price,
+        inventoryOnHand: 10 + Math.floor(Math.random() * 40)
+      }, merchant);
+      if (result.success) {
+        await ActivityService.emit('RUNTIME_ACTION_ATTEMPTED', merchant.id, {}, {
+          actionType: 'create_listing', source: 'supply_check', success: true,
+          rationale: `Listing unlisted product "${product.title}"`
+        });
+        console.log(`[supply] ${merchant.name}: listed "${product.title}"`);
+        return true;
+      }
+    }
+
+    // 40% chance: update price on an existing listing instead of creating a product
+    if (Math.random() < 0.4 && ctx.myListings?.length > 0) {
+      const listing = ctx.myListings[Math.floor(Math.random() * ctx.myListings.length)];
+      const adjustment = Math.random() > 0.5
+        ? Math.round(listing.price_cents * (0.8 + Math.random() * 0.15))
+        : Math.round(listing.price_cents * (1.05 + Math.random() * 0.15));
+      const direction = adjustment < listing.price_cents ? 'Lowering' : 'Raising';
+      const result = await RuntimeActions.execute('update_price', {
+        listingId: listing.id,
+        newPriceCents: adjustment,
+        reason: direction === 'Lowering'
+          ? 'Competitive pricing — adjusting to market demand'
+          : 'Premium quality warrants a price increase'
+      }, merchant);
+      if (result.success) {
+        await ActivityService.emit('RUNTIME_ACTION_ATTEMPTED', merchant.id, {}, {
+          actionType: 'update_price', source: 'supply_check', success: true,
+          rationale: `${direction} price on ${listing.product_title}`
+        });
+        console.log(`[supply] ${merchant.name}: ${direction.toLowerCase()} price on "${listing.product_title}"`);
+        return true;
+      }
+    }
+
+    // Otherwise: create a new product (and it'll get listed on next supply check)
+    const productNames = [
+      'Minimalist Pen Holder', 'Bamboo Laptop Stand', 'Ceramic Desk Tray',
+      'Felt Cable Sleeve', 'Magnetic Whiteboard Tile', 'Cork Coaster Set',
+      'Brass Pencil Cup', 'Leather Mouse Pad', 'Oak Card Holder',
+      'Walnut Monitor Riser', 'Copper Desk Lamp', 'Linen Headphone Stand',
+      'Marble Paperweight', 'Recycled Notebook', 'Silicone Cable Wrap',
+      'Cherry Wood Tray', 'Canvas Tool Roll', 'Titanium Pen',
+      'Acacia Keyboard Wrist Rest', 'Concrete Planter', 'Steel Desk Clock',
+      'Woven Storage Basket', 'Glass Terrarium', 'Birch Tablet Stand'
+    ];
+    const name = productNames[Math.floor(Math.random() * productNames.length)];
+    const result = await RuntimeActions.execute('create_product', {
+      storeId: myStoreId,
+      title: name,
+      description: `A beautifully crafted ${name.toLowerCase()} for the modern workspace.`
+    }, merchant);
+
+    if (result.success) {
+      await ActivityService.emit('RUNTIME_ACTION_ATTEMPTED', merchant.id, {}, {
+        actionType: 'create_product', source: 'supply_check', success: true,
+        rationale: `Creating new product "${name}" to expand catalog`
+      });
+      console.log(`[supply] ${merchant.name}: created "${name}"`);
+      return true;
+    }
+
+    return false;
   }
 
   /**
