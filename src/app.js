@@ -43,9 +43,34 @@ app.use(express.json({ limit: '1mb' }));
 // Trust proxy (for rate limiting behind reverse proxy)
 app.set('trust proxy', 1);
 
-// Static file serving for uploaded images (safe: fixed base dir, no dotfiles)
+// Static image serving — GCS proxy in production, local filesystem in dev
 const uploadsPath = path.resolve(__dirname, '..', 'uploads');
-app.use('/static', express.static(uploadsPath, { dotfiles: 'deny', maxAge: '1h' }));
+if (config.image.gcsBucket) {
+  // Production: proxy from GCS, fallback to local
+  const ImageGenService = require('./services/media/ImageGenService');
+  app.get('/static/*', async (req, res) => {
+    const gcsKey = req.path.replace('/static/', '');
+    try {
+      const result = await ImageGenService.streamFromGcs(gcsKey);
+      if (result) {
+        res.set('Content-Type', result.contentType);
+        res.set('Cache-Control', 'public, max-age=3600');
+        result.stream.pipe(res);
+        return;
+      }
+    } catch (err) {
+      console.warn(`GCS stream error for ${gcsKey}: ${err.message}`);
+    }
+    // Fallback to local filesystem
+    const localPath = path.join(uploadsPath, gcsKey);
+    res.sendFile(localPath, { dotfiles: 'deny', maxAge: '1h' }, (err) => {
+      if (err) res.status(404).json({ error: 'Image not found' });
+    });
+  });
+} else {
+  // Development: serve directly from local filesystem
+  app.use('/static', express.static(uploadsPath, { dotfiles: 'deny', maxAge: '1h' }));
+}
 
 // API routes
 app.use('/api/v1', routes);

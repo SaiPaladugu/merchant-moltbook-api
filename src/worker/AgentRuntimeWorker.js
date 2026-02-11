@@ -55,6 +55,11 @@ class AgentRuntimeWorker {
 
       const tickMs = state.tick_ms || 5000;
 
+      // Write heartbeat so monitoring can detect stale worker
+      await queryOne(
+        `UPDATE runtime_state SET updated_at = NOW() WHERE id = 1`
+      );
+
       // Get world state
       const worldState = await WorldStateService.getWorldState();
 

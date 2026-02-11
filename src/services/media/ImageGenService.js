@@ -1,15 +1,33 @@
 /**
  * Image Generation Service
- * Provider-agnostic image generation with local file storage.
+ * Provider-agnostic image generation with GCS-backed storage (local fallback).
  * Switches on config.image.provider.
  * 
  * Proxy-compatible: tries URL format first (download), falls back to b64_json,
  * then falls back to no response_format at all (for proxies that don't support it).
+ * 
+ * Storage:
+ *  - Production (GCS_BUCKET set): uploads to GCS, serves via /static proxy route
+ *  - Development: saves to local filesystem, serves via express.static
  */
 
 const fs = require('fs');
 const path = require('path');
 const config = require('../../config');
+
+// Lazy-init GCS client (only when bucket is configured)
+let _gcsClient = null;
+let _gcsBucket = null;
+
+function _getGcsBucket() {
+  if (!config.image.gcsBucket) return null;
+  if (!_gcsClient) {
+    const { Storage } = require('@google-cloud/storage');
+    _gcsClient = new Storage();
+    _gcsBucket = _gcsClient.bucket(config.image.gcsBucket);
+  }
+  return _gcsBucket;
+}
 
 // Key pool rotation state for image generation
 let _imageKeyIndex = 0;
@@ -86,14 +104,14 @@ class ImageGenService {
       const url = response.data[0]?.url;
       if (url) {
         const buffer = await this._downloadImage(url);
-        const imageUrl = await this._saveToLocal(buffer, productId);
+        const imageUrl = await this._saveImage(buffer, productId);
         return { imageUrl };
       }
       // If no URL, try b64
       const b64 = response.data[0]?.b64_json;
       if (b64) {
         const buffer = Buffer.from(b64, 'base64');
-        const imageUrl = await this._saveToLocal(buffer, productId);
+        const imageUrl = await this._saveImage(buffer, productId);
         return { imageUrl };
       }
       throw new Error('No image data in response');
@@ -112,7 +130,7 @@ class ImageGenService {
         const b64 = response.data[0]?.b64_json;
         if (!b64) throw new Error('No b64_json in response');
         const buffer = Buffer.from(b64, 'base64');
-        const imageUrl = await this._saveToLocal(buffer, productId);
+        const imageUrl = await this._saveImage(buffer, productId);
         return { imageUrl };
       } catch (secondError) {
         // Strategy 3: Explicit URL format
@@ -124,7 +142,7 @@ class ImageGenService {
           const url = response.data[0]?.url;
           if (!url) throw new Error('No URL in response');
           const buffer = await this._downloadImage(url);
-          const imageUrl = await this._saveToLocal(buffer, productId);
+          const imageUrl = await this._saveImage(buffer, productId);
           return { imageUrl };
         } catch (thirdError) {
           // All strategies failed — throw the original error with context
@@ -160,28 +178,66 @@ class ImageGenService {
   }
 
   /**
-   * Save image buffer to local uploads directory
+   * Save image buffer — GCS in production, local filesystem in dev.
+   * Always returns a URL path like /static/products/{productId}/{filename}
+   * that works with the API's static proxy route.
    */
-  static async _saveToLocal(buffer, productId) {
+  static async _saveImage(buffer, productId) {
     // Enforce max file size
     const maxBytes = config.image.maxFileSizeMb * 1024 * 1024;
     if (buffer.length > maxBytes) {
       throw new Error(`Image exceeds max size of ${config.image.maxFileSizeMb}MB`);
     }
 
-    const baseDir = path.resolve(config.image.outputDir);
-    const productDir = path.join(baseDir, 'products', productId);
-
-    // Create directory if needed
-    fs.mkdirSync(productDir, { recursive: true });
-
     const filename = `${Date.now()}.png`;
-    const filePath = path.join(productDir, filename);
+    const gcsKey = `products/${productId}/${filename}`;
+    const bucket = _getGcsBucket();
 
-    fs.writeFileSync(filePath, buffer);
+    if (bucket) {
+      // Upload to GCS (production path)
+      const file = bucket.file(gcsKey);
+      await file.save(buffer, {
+        contentType: 'image/png',
+        metadata: { cacheControl: 'public, max-age=3600' }
+      });
+      console.log(`  Image uploaded to GCS: gs://${config.image.gcsBucket}/${gcsKey}`);
+    }
 
-    // Return URL path relative to static mount
-    return `/static/products/${productId}/${filename}`;
+    // Also save locally (worker reference / dev fallback)
+    try {
+      const baseDir = path.resolve(config.image.outputDir);
+      const productDir = path.join(baseDir, 'products', productId);
+      fs.mkdirSync(productDir, { recursive: true });
+      fs.writeFileSync(path.join(productDir, filename), buffer);
+    } catch (localErr) {
+      // In Cloud Run the filesystem is ephemeral — local save is best-effort
+      if (bucket) {
+        console.warn(`Local save failed (GCS is primary): ${localErr.message}`);
+      } else {
+        throw localErr; // No GCS and no local = real failure
+      }
+    }
+
+    // Return consistent URL path — API serves via /static proxy
+    return `/static/${gcsKey}`;
+  }
+
+  /**
+   * Stream an image from GCS (used by the API proxy route).
+   * Returns { stream, contentType } or null if not found / GCS not configured.
+   */
+  static async streamFromGcs(gcsKey) {
+    const bucket = _getGcsBucket();
+    if (!bucket) return null;
+
+    const file = bucket.file(gcsKey);
+    const [exists] = await file.exists();
+    if (!exists) return null;
+
+    return {
+      stream: file.createReadStream(),
+      contentType: 'image/png'
+    };
   }
 }
 

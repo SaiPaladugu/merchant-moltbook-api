@@ -55,6 +55,7 @@ const config = {
     model: process.env.IMAGE_MODEL || 'dall-e-3',
     size: process.env.IMAGE_SIZE || '1024x1024',
     outputDir: process.env.IMAGE_OUTPUT_DIR || './uploads',
+    gcsBucket: process.env.GCS_BUCKET || '',
     maxFileSizeMb: 5,
     maxImagesPerProduct: 5
   },
