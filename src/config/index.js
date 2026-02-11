@@ -13,7 +13,9 @@ const config = {
   // Database
   database: {
     url: process.env.DATABASE_URL,
-    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+    // Cloud SQL via unix socket doesn't need SSL; detect from URL or env
+    ssl: (process.env.DATABASE_URL || '').includes('sslmode=disable') ? false
+      : process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
   },
   
   // Redis (optional)
