@@ -93,9 +93,12 @@ class AgentRuntimeWorker {
   async _executeAgentAction(agent, worldState) {
     let actionType, args, rationale, source;
 
+    // Get personal context for this agent
+    const agentContext = await WorldStateService.getAgentContext(agent.id, agent.agent_type);
+
     try {
-      // Try LLM-driven action
-      const llmResult = await LlmClient.generateAction({ agent, worldState });
+      // Try LLM-driven action (with personal context)
+      const llmResult = await LlmClient.generateAction({ agent, worldState, agentContext });
       actionType = llmResult.actionType;
       args = llmResult.args;
       rationale = llmResult.rationale;
@@ -103,7 +106,7 @@ class AgentRuntimeWorker {
     } catch (error) {
       // LLM failed — use deterministic fallback
       console.warn(`LLM failed for ${agent.name}: ${error.message}. Using fallback.`);
-      const fallback = this._deterministic(agent, worldState);
+      const fallback = this._deterministic(agent, worldState, agentContext);
       actionType = fallback.actionType;
       args = fallback.args;
       rationale = fallback.rationale;
@@ -135,190 +138,218 @@ class AgentRuntimeWorker {
    * Deterministic fallback policy
    * Respects strict gating — never attempts purchase without evidence.
    */
-  _deterministic(agent, worldState) {
+  _deterministic(agent, worldState, agentContext) {
     const isMerchant = agent.agent_type === 'MERCHANT';
 
     if (isMerchant) {
-      return this._merchantFallback(agent, worldState);
+      return this._merchantFallback(agent, worldState, agentContext);
     } else {
-      return this._customerFallback(agent, worldState);
+      return this._customerFallback(agent, worldState, agentContext);
     }
   }
 
-  _merchantFallback(agent, worldState) {
-    const myStores = (worldState.activeListings || []).filter(l => l.owner_merchant_id === agent.id);
-    const myStoreId = myStores[0]?.store_id;
+  /**
+   * Merchant fallback — follows the lifecycle:
+   * 1. List unlisted products
+   * 2. Respond to pending offers
+   * 3. Reply to customer threads
+   * 4. Create new product (occasionally)
+   */
+  _merchantFallback(agent, worldState, agentContext) {
+    const ctx = agentContext || {};
+    const myStoreId = ctx.myStores?.[0]?.id;
 
-    // Always handle pending offers first (not random — these are urgent)
-    const myOffers = (worldState.pendingOffers || []).filter(
-      o => myStores.some(l => l.store_id === o.seller_store_id)
-    );
-    if (myOffers.length > 0) {
-      const offer = myOffers[0];
+    // Step 1: List unlisted products (highest priority — they created it, now sell it)
+    if (ctx.unlistedProducts?.length > 0 && myStoreId) {
+      const product = ctx.unlistedProducts[0];
+      const price = 1999 + Math.floor(Math.random() * 8000); // $19.99 - $99.99
       return {
-        actionType: Math.random() > 0.3 ? 'accept_offer' : 'reject_offer',
-        args: { offerId: offer.id },
-        rationale: 'Responding to pending offer'
+        actionType: 'create_listing',
+        args: {
+          storeId: product.store_id,
+          productId: product.id,
+          priceCents: price,
+          inventoryOnHand: 10 + Math.floor(Math.random() * 40)
+        },
+        rationale: `Listing "${product.title}" for sale`
       };
     }
 
-    // Random pick from balanced action pool
-    const roll = Math.random();
+    // Step 2: Respond to pending offers
+    if (ctx.myPendingOffers?.length > 0) {
+      const offer = ctx.myPendingOffers[0];
+      // Accept if offer is > 60% of a reasonable price, reject lowballs
+      const accept = offer.proposed_price_cents > 1000 && Math.random() > 0.3;
+      return {
+        actionType: accept ? 'accept_offer' : 'reject_offer',
+        args: { offerId: offer.id },
+        rationale: accept
+          ? `Accepting ${offer.buyer_name}'s offer of $${(offer.proposed_price_cents/100).toFixed(2)}`
+          : `Rejecting lowball offer from ${offer.buyer_name}`
+      };
+    }
 
-    // 20%: Create a new product (triggers image gen)
-    if (roll < 0.20 && myStoreId) {
+    // Step 3: Reply to threads with customer activity
+    if (ctx.myThreadsWithQuestions?.length > 0) {
+      const thread = ctx.myThreadsWithQuestions[Math.floor(Math.random() * ctx.myThreadsWithQuestions.length)];
+      return {
+        actionType: 'reply_in_thread',
+        args: {
+          threadId: thread.thread_id,
+          content: 'Thanks for your interest! Happy to answer any questions. Our products are crafted with premium materials and we stand behind our quality.'
+        },
+        rationale: 'Responding to customer questions'
+      };
+    }
+
+    // Step 4: Create new product (10% chance)
+    if (myStoreId && Math.random() > 0.9) {
       const productNames = [
         'Minimalist Pen Holder', 'Bamboo Laptop Stand', 'Ceramic Desk Tray',
         'Felt Cable Sleeve', 'Magnetic Whiteboard Tile', 'Cork Coaster Set',
-        'Brass Pencil Cup', 'Leather Mouse Pad', 'Oak Card Holder',
-        'Steel Paper Clip Tray', 'Glass Desk Clock', 'Wool Desk Pad',
-        'Copper Wire Organizer', 'Marble Bookend Set', 'Silicone Key Tray'
+        'Brass Pencil Cup', 'Leather Mouse Pad', 'Oak Card Holder'
       ];
       const name = productNames[Math.floor(Math.random() * productNames.length)];
       return {
         actionType: 'create_product',
-        args: {
-          storeId: myStoreId,
-          title: name,
-          description: `A beautifully crafted ${name.toLowerCase()} for the modern workspace. Premium materials, thoughtful design.`
-        },
-        rationale: 'Expanding product catalog'
+        args: { storeId: myStoreId, title: name, description: `A beautifully crafted ${name.toLowerCase()} for the modern workspace.` },
+        rationale: 'Expanding catalog'
       };
     }
 
-    // 15%: Update price
-    if (roll < 0.35 && myStores.length > 0) {
-      const listing = myStores[Math.floor(Math.random() * myStores.length)];
-      const change = Math.random() > 0.5 ? 0.9 : 1.1;
-      return {
-        actionType: 'update_price',
-        args: {
-          listingId: listing.id,
-          newPriceCents: Math.round(listing.price_cents * change),
-          reason: change < 1 ? 'Flash sale — limited time discount!' : 'Premium materials cost increase'
-        },
-        rationale: 'Adjusting pricing strategy'
-      };
-    }
-
-    // 50%: Reply in a thread about my listing
-    const myThreads = (worldState.recentThreads || []).filter(
-      t => myStores.some(l => l.store_id === t.context_store_id)
-    );
-    if (roll < 0.85 && myThreads.length > 0) {
-      const thread = myThreads[Math.floor(Math.random() * myThreads.length)];
+    // Step 5: Engage in any active thread
+    const threads = worldState.recentThreads || [];
+    if (threads.length > 0) {
+      const thread = threads[Math.floor(Math.random() * threads.length)];
       return {
         actionType: 'reply_in_thread',
-        args: {
-          threadId: thread.id,
-          content: 'Thank you for your interest! Let me know if you have any other questions.'
-        },
-        rationale: 'Engaging with customers'
+        args: { threadId: thread.id, content: 'Great to see the marketplace buzzing! Check out our store for quality products.' },
+        rationale: 'Staying visible in the marketplace'
       };
     }
 
-    // 15%: Skip (natural pause)
-    return { actionType: 'skip', args: {}, rationale: 'No merchant actions available' };
+    return { actionType: 'skip', args: {}, rationale: 'Nothing to do right now' };
   }
 
-  _customerFallback(agent, worldState) {
+  /**
+   * Customer fallback — follows the lifecycle:
+   * 1. Review unreviewed orders
+   * 2. Purchase from accepted offers
+   * 3. Purchase listings with evidence
+   * 4. Make offers on listings with evidence
+   * 5. Ask questions on new listings
+   * 6. Browse / create looking-for
+   */
+  _customerFallback(agent, worldState, agentContext) {
+    const ctx = agentContext || {};
     const listings = worldState.activeListings || [];
 
-    // Always handle actionable state first (reviews, purchases)
-    const myUnreviewed = (worldState.unreviewedOrders || []).filter(o => o.buyer_customer_id === agent.id);
-    if (myUnreviewed.length > 0) {
-      const order = myUnreviewed[0];
-      const rating = Math.floor(Math.random() * 5) + 1;
+    // Step 1: Review unreviewed orders (close the loop!)
+    if (ctx.myUnreviewedOrders?.length > 0) {
+      const order = ctx.myUnreviewedOrders[0];
+      const rating = 2 + Math.floor(Math.random() * 4); // 2-5
       return {
         actionType: 'leave_review',
         args: {
           orderId: order.order_id,
           rating,
-          body: `${rating >= 4 ? 'Excellent product! Very happy with my purchase.' : rating >= 3 ? 'Decent product. Does what it says.' : 'Disappointing quality. Expected more for the price.'}`
+          body: rating >= 4
+            ? `Love the ${order.product_title} from ${order.store_name}! Excellent quality and fast delivery.`
+            : rating >= 3
+            ? `The ${order.product_title} is okay. Does what it says but nothing special.`
+            : `Disappointed with the ${order.product_title}. Expected more for the price.`
         },
-        rationale: 'Reviewing delivered order'
+        rationale: `Reviewing ${order.product_title}`
       };
     }
 
-    const eligible = (worldState.eligiblePurchasers || []).filter(e => e.customer_id === agent.id);
-    if (eligible.length > 0 && Math.random() > 0.5) {
+    // Step 2: Purchase from accepted offers
+    if (ctx.acceptedOffers?.length > 0) {
+      const offer = ctx.acceptedOffers[0];
+      return {
+        actionType: 'purchase_from_offer',
+        args: { offerId: offer.id },
+        rationale: `Buying ${offer.product_title} via accepted offer`
+      };
+    }
+
+    // Step 3: Purchase listings where we have evidence but no order
+    if (ctx.canPurchase?.length > 0 && Math.random() > 0.3) {
+      const pick = ctx.canPurchase[0];
       return {
         actionType: 'purchase_direct',
-        args: { listingId: eligible[0].listing_id },
-        rationale: 'Eligible to purchase — buying now'
+        args: { listingId: pick.listing_id },
+        rationale: `Purchasing ${pick.product_title} — already asked/offered`
       };
     }
 
-    // Random pick from balanced pool (5 action types, ~20% each)
-    const roll = Math.random();
+    // Step 4: Make an offer on a listing we've interacted with (but haven't bought)
+    if (ctx.myEvidence?.length > 0) {
+      // Find a listing we asked about but haven't offered on
+      const askedOnly = ctx.myEvidence.filter(e =>
+        e.type === 'QUESTION_POSTED' &&
+        !ctx.myOffers?.some(o => o.listing_id === e.listing_id)
+      );
+      if (askedOnly.length > 0) {
+        const pick = askedOnly[0];
+        const discount = 0.65 + Math.random() * 0.25;
+        return {
+          actionType: 'make_offer',
+          args: {
+            listingId: pick.listing_id,
+            proposedPriceCents: Math.round(pick.price_cents * discount),
+            buyerMessage: `I asked about the ${pick.product_title} earlier. Would you take this price?`
+          },
+          rationale: `Following up with an offer on ${pick.product_title}`
+        };
+      }
+    }
 
-    // 20%: Ask a question
-    if (roll < 0.20 && listings.length > 0) {
-      const listing = listings[Math.floor(Math.random() * listings.length)];
+    // Step 5: Ask a question on a listing we haven't interacted with yet
+    const untouched = listings.filter(l =>
+      !ctx.myEvidence?.some(e => e.listing_id === l.id)
+    );
+    if (untouched.length > 0) {
+      const listing = untouched[Math.floor(Math.random() * untouched.length)];
       const questions = [
-        `What materials is the ${listing.product_title} made from? I want to make sure it is durable.`,
-        `Does the ${listing.product_title} come with a warranty? What about returns if I do not like it?`,
-        `Can you tell me the dimensions of the ${listing.product_title}? Will it fit a small desk?`,
-        `How does the ${listing.product_title} compare to similar products? What makes yours special?`,
-        `Is the ${listing.product_title} in stock and ready to ship? I need it by next week.`
+        `What makes the ${listing.product_title} worth $${(listing.price_cents/100).toFixed(2)}? Convince me.`,
+        `How does the ${listing.product_title} compare to alternatives? I am looking at several options.`,
+        `Can you tell me about the materials and build quality of the ${listing.product_title}?`,
+        `Is the ${listing.product_title} really as good as described? Any known issues?`,
+        `What is the return policy for the ${listing.product_title}? I want to try before I commit.`
       ];
       return {
         actionType: 'ask_question',
         args: { listingId: listing.id, content: questions[Math.floor(Math.random() * questions.length)] },
-        rationale: 'Asking about a product'
+        rationale: `Exploring ${listing.product_title}`
       };
     }
 
-    // 20%: Make an offer
-    if (roll < 0.40 && listings.length > 0) {
+    // Step 6: Make an offer on any listing
+    if (listings.length > 0) {
       const listing = listings[Math.floor(Math.random() * listings.length)];
-      const discount = 0.6 + Math.random() * 0.3;
-      const messages = [
-        'Would you consider this price? I am a serious buyer.',
-        'I think this is fair given the competition. What do you say?',
-        'Willing to buy right now if you accept this offer.',
-        'I have been comparing options and this is my best offer.'
-      ];
+      const discount = 0.5 + Math.random() * 0.4;
       return {
         actionType: 'make_offer',
         args: {
           listingId: listing.id,
           proposedPriceCents: Math.round(listing.price_cents * discount),
-          buyerMessage: messages[Math.floor(Math.random() * messages.length)]
+          buyerMessage: 'Interested in this. Would you accept this price?'
         },
-        rationale: 'Making an offer'
+        rationale: 'Making an offer to start negotiation'
       };
     }
 
-    // 20%: Create a LOOKING_FOR thread
-    if (roll < 0.60) {
-      const categories = ['desk accessories', 'cable management', 'lighting', 'gifts', 'workspace upgrade', 'minimalist decor'];
-      const cat = categories[Math.floor(Math.random() * categories.length)];
-      const budget = 2000 + Math.floor(Math.random() * 15000);
-      return {
-        actionType: 'create_looking_for',
-        args: {
-          title: `Looking for ${cat} under $${(budget / 100).toFixed(0)}`,
-          constraints: { budgetCents: budget, category: cat, mustHaves: ['quality'], deadline: '2026-03-01' }
-        },
-        rationale: 'Creating new shopping request'
-      };
-    }
-
-    // 40%: Reply in an existing thread
-    if ((worldState.recentThreads || []).length > 0) {
-      const thread = worldState.recentThreads[Math.floor(Math.random() * worldState.recentThreads.length)];
-      return {
-        actionType: 'reply_in_thread',
-        args: { threadId: thread.id, content: 'Great discussion! I have been looking at similar options and would love to hear more.' },
-        rationale: 'Joining conversation'
-      };
-    }
-
+    // Step 7: Create a looking-for post
+    const categories = ['desk accessories', 'cable management', 'lighting', 'gifts', 'workspace upgrade'];
+    const cat = categories[Math.floor(Math.random() * categories.length)];
     return {
       actionType: 'create_looking_for',
-      args: { title: 'Product recommendations?', constraints: { budgetCents: 5000, category: 'general', mustHaves: ['quality'] } },
-      rationale: 'Default — creating thread'
+      args: {
+        title: `Looking for ${cat}`,
+        constraints: { budgetCents: 3000 + Math.floor(Math.random() * 7000), category: cat, mustHaves: ['quality'] }
+      },
+      rationale: 'Browsing for new products'
     };
   }
 

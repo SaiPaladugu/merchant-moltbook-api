@@ -34,12 +34,12 @@ class LlmClient {
   /**
    * Generate an action for an agent given world state
    */
-  static async generateAction({ agent, worldState }) {
+  static async generateAction({ agent, worldState, agentContext }) {
     const provider = config.llm.provider;
 
     switch (provider) {
       case 'openai':
-        return this._generateOpenAI({ agent, worldState });
+        return this._generateOpenAI({ agent, worldState, agentContext });
       case 'anthropic':
         return this._generateAnthropic({ agent, worldState });
       default:
@@ -51,7 +51,7 @@ class LlmClient {
    * OpenAI provider — proxy-compatible
    * Tries with response_format first, falls back to raw text + JSON extraction
    */
-  static async _generateOpenAI({ agent, worldState }) {
+  static async _generateOpenAI({ agent, worldState, agentContext }) {
     const apiKey = _getNextLlmKey();
     if (!apiKey) {
       throw new Error('LLM_API_KEY not configured');
@@ -63,7 +63,7 @@ class LlmClient {
     const openai = new OpenAI(clientOpts);
 
     const systemPrompt = this._buildSystemPrompt(agent);
-    const userPrompt = this._buildUserPrompt(agent, worldState);
+    const userPrompt = this._buildUserPrompt(agent, worldState, agentContext);
 
     const baseMessages = [
       { role: 'system', content: systemPrompt },
@@ -172,39 +172,44 @@ class LlmClient {
    * Build the system prompt for agent behavior
    */
   static _buildSystemPrompt(agent) {
-    const merchantActions = `
-MERCHANT actions (in priority order):
-1. "create_product" — launch a NEW product (args: storeId, title, description). DO THIS if you have fewer than 3 products.
-2. "create_listing" — list an existing product for sale (args: storeId, productId, priceCents, inventoryOnHand). DO THIS after creating a product.
-3. "accept_offer" / "reject_offer" — respond to pending offers (args: offerId)
-4. "update_price" — change a listing price (args: listingId, newPriceCents, reason)
-5. "update_policies" — change store policies (args: storeId, returnPolicyText, shippingPolicyText, reason)
-6. "reply_in_thread" — respond to customer questions (args: threadId, content). ONLY do this if customers are asking YOU directly.`;
+    const merchantLifecycle = `
+You are a MERCHANT. Your goal is to run a successful store: list products, respond to customers, accept good offers, and build your reputation.
 
-    const customerActions = `
-CUSTOMER actions (in priority order):
-1. "create_looking_for" — post what you're shopping for (args: title, constraints: {budgetCents, category, mustHaves, deadline})
-2. "ask_question" — ask a merchant about their product (args: listingId, content). Content MUST be 20+ chars.
-3. "make_offer" — propose a price to a merchant (args: listingId, proposedPriceCents, buyerMessage)
-4. "purchase_direct" — buy a listing (args: listingId). Only works if you've asked a question or made an offer first.
-5. "leave_review" — review a delivered order (args: orderId, rating 1-5, body)
-6. "reply_in_thread" — continue a conversation (args: threadId, content). Use SPARINGLY — prefer new actions above.`;
+THINK ABOUT YOUR SITUATION then pick the right next action:
+
+1. If you have products that are NOT listed for sale yet → "create_listing" (args: storeId, productId, priceCents, inventoryOnHand)
+2. If customers made offers on your listings → "accept_offer" or "reject_offer" (args: offerId). Accept if the price is reasonable (>60% of listing price). Reject lowballs.
+3. If customers asked questions in your threads → "reply_in_thread" (args: threadId, content). Reference their question BY NAME. Be helpful and persuasive.
+4. If a competitor has a similar product cheaper → "update_price" (args: listingId, newPriceCents, reason)
+5. If you want to expand your catalog → "create_product" (args: storeId, title, description). Be creative with names.
+6. If nothing else to do → "reply_in_thread" in an active thread to stay visible
+
+Available actions: create_product, create_listing, accept_offer, reject_offer, update_price, update_policies, reply_in_thread, skip`;
+
+    const customerLifecycle = `
+You are a CUSTOMER. Your goal is to find products, negotiate deals, buy things, and leave reviews.
+
+THE COMMERCE LIFECYCLE — follow these steps in order:
+1. If you have delivered orders you haven't reviewed → "leave_review" (args: orderId, rating 1-5, body). DO THIS FIRST.
+2. If you have an accepted offer you haven't purchased → "purchase_from_offer" (args: offerId). BUY IT.
+3. If you've asked questions or made offers on a listing but haven't bought it → "purchase_direct" (args: listingId). COMPLETE THE PURCHASE.
+4. If you see a listing you're interested in but haven't interacted with → "ask_question" (args: listingId, content 20+ chars) OR "make_offer" (args: listingId, proposedPriceCents, buyerMessage)
+5. If someone in a thread said something you want to respond to → "reply_in_thread" (args: threadId, content). Reference them BY NAME and their specific point.
+6. If you want to discover new products → "create_looking_for" (args: title, constraints: {budgetCents, category, mustHaves, deadline})
+
+IMPORTANT: Do NOT just ask questions forever. Progress through the lifecycle: ask → offer → buy → review.
+IMPORTANT: When replying in threads, engage with OTHER agents' comments. Quote them. Agree or disagree. Create a conversation.
+
+Available actions: ask_question, make_offer, purchase_direct, purchase_from_offer, leave_review, create_looking_for, reply_in_thread, skip`;
 
     const role = agent.agent_type === 'MERCHANT'
-      ? `You are an AI merchant agent in the Moltbook marketplace.\n${merchantActions}`
-      : `You are an AI customer agent in the Moltbook marketplace.\n${customerActions}`;
+      ? `${merchantLifecycle}`
+      : `${customerLifecycle}`;
 
     return `${role}
 
-Your name is ${agent.name}. Stay in character.
-
-RULES:
-- Mix your actions: create new content AND reply to existing threads in roughly equal proportion.
-- Aim for variety: questions, offers, looking-for posts, replies, reviews, product launches.
-- Do NOT do the same action type twice in a row if you can help it.
-- When creating products, be creative — invent new product names and descriptions that fit your store brand.
-- When replying, add substance — reference specific products and prices.
-- Always include all required args fields.
+Your name is ${agent.name}. ${agent.description || ''}
+Stay in character. Your personality should come through in everything you do.
 
 Respond with a JSON object: { "actionType": "...", "args": {...}, "rationale": "..." }
 Respond with ONLY the JSON object, no other text.`;
@@ -213,20 +218,41 @@ Respond with ONLY the JSON object, no other text.`;
   /**
    * Build the user prompt with world state context
    */
-  static _buildUserPrompt(agent, worldState) {
+  static _buildUserPrompt(agent, worldState, agentContext) {
     // Trim world state to avoid token limits
     const trimmed = {
-      activeListings: (worldState.activeListings || []).slice(0, 5),
+      activeListings: (worldState.activeListings || []).slice(0, 8),
       recentThreads: (worldState.recentThreads || []).slice(0, 5),
-      pendingOffers: (worldState.pendingOffers || []).slice(0, 5),
-      eligiblePurchasers: (worldState.eligiblePurchasers || []).slice(0, 5),
-      unreviewedOrders: (worldState.unreviewedOrders || []).slice(0, 5)
+      pendingOffers: (worldState.pendingOffers || []).slice(0, 5)
     };
 
-    return `Current world state:
+    // Build personal situation summary
+    let situation = '';
+    if (agentContext) {
+      situation = `\nYOUR CURRENT SITUATION:\n${agentContext.summary}\n`;
+
+      if (agent.agent_type === 'MERCHANT' && agentContext.unlistedProducts?.length > 0) {
+        situation += `\nUNLISTED PRODUCTS (need to be listed for sale):\n${JSON.stringify(agentContext.unlistedProducts.slice(0, 3), null, 2)}\n`;
+      }
+      if (agent.agent_type === 'MERCHANT' && agentContext.myPendingOffers?.length > 0) {
+        situation += `\nPENDING OFFERS (customers waiting for your response):\n${JSON.stringify(agentContext.myPendingOffers.slice(0, 3), null, 2)}\n`;
+      }
+      if (agent.agent_type === 'CUSTOMER' && agentContext.myUnreviewedOrders?.length > 0) {
+        situation += `\nORDERS NEEDING REVIEW:\n${JSON.stringify(agentContext.myUnreviewedOrders, null, 2)}\n`;
+      }
+      if (agent.agent_type === 'CUSTOMER' && agentContext.acceptedOffers?.length > 0) {
+        situation += `\nACCEPTED OFFERS (ready to purchase!):\n${JSON.stringify(agentContext.acceptedOffers, null, 2)}\n`;
+      }
+      if (agent.agent_type === 'CUSTOMER' && agentContext.canPurchase?.length > 0) {
+        situation += `\nLISTINGS YOU CAN BUY (you already have gating evidence):\n${JSON.stringify(agentContext.canPurchase.slice(0, 3), null, 2)}\n`;
+      }
+    }
+
+    return `${situation}
+MARKETPLACE STATE:
 ${JSON.stringify(trimmed, null, 2)}
 
-What action should ${agent.name} take next? Respond with JSON only.`;
+What should ${agent.name} do next? Pick the action that advances your goals. Respond with JSON only.`;
   }
 }
 
