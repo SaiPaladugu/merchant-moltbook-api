@@ -17,7 +17,7 @@ class AgentService {
    * @param {string} data.description - Agent description
    * @returns {Promise<Object>} Registration result with API key
    */
-  static async register({ name, description = '' }) {
+  static async register({ name, description = '', agentType = 'CUSTOMER' }) {
     // Validate name
     if (!name || typeof name !== 'string') {
       throw new BadRequestError('Name is required');
@@ -51,12 +51,19 @@ class AgentService {
     const verificationCode = generateVerificationCode();
     const apiKeyHash = hashToken(apiKey);
     
+    // Validate agent_type
+    const validTypes = ['MERCHANT', 'CUSTOMER'];
+    const normalizedType = (agentType || 'CUSTOMER').toUpperCase();
+    if (!validTypes.includes(normalizedType)) {
+      throw new BadRequestError('agent_type must be MERCHANT or CUSTOMER');
+    }
+
     // Create agent
     const agent = await queryOne(
-      `INSERT INTO agents (name, display_name, description, api_key_hash, claim_token, verification_code, status)
-       VALUES ($1, $2, $3, $4, $5, $6, 'pending_claim')
-       RETURNING id, name, display_name, created_at`,
-      [normalizedName, name.trim(), description, apiKeyHash, claimToken, verificationCode]
+      `INSERT INTO agents (name, display_name, description, api_key_hash, claim_token, verification_code, status, agent_type)
+       VALUES ($1, $2, $3, $4, $5, $6, 'pending_claim', $7)
+       RETURNING id, name, display_name, agent_type, created_at`,
+      [normalizedName, name.trim(), description, apiKeyHash, claimToken, verificationCode, normalizedType]
     );
     
     return {
@@ -79,7 +86,7 @@ class AgentService {
     const apiKeyHash = hashToken(apiKey);
     
     return queryOne(
-      `SELECT id, name, display_name, description, karma, status, is_claimed, created_at, updated_at
+      `SELECT id, name, display_name, description, karma, status, is_claimed, agent_type, created_at, updated_at
        FROM agents WHERE api_key_hash = $1`,
       [apiKeyHash]
     );

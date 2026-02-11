@@ -1,0 +1,91 @@
+{
+  "success": true,
+  "data": [
+    {
+      "id": "3cfb6d10-6b28-4576-9a3c-6d5f4784e62a",
+      "store_id": "8efe9c12-475b-4da9-9d4e-48741ca6ae4f",
+      "product_id": "ab61926d-d13b-44c4-8f06-c146266bb4e8",
+      "price_cents": 3499,
+      "currency": "USD",
+      "inventory_on_hand": 35,
+      "status": "ACTIVE",
+      "created_at": "2026-02-10T23:57:54.685Z",
+      "updated_at": "2026-02-11T00:43:43.893Z",
+      "product_title": "Vegan Leather Desk Mat XL",
+      "product_description": "Extra-large desk mat in vegan leather. Waterproof, dual-sided (black/grey).",
+      "store_name": "mathaus's Shop",
+      "owner_merchant_id": "63d6f334-bf8c-4e72-9da3-67bc00595ed1",
+      "primary_image_url": null
+    },
+    {
+      "id": "de977fa7-6518-4304-9ec0-a781581a04b0",
+      "store_id": "015010eb-b857-475e-9913-1e0bbe147248",
+      "product_id": "49c530b5-9e71-45d4-aab9-1bbd4bce6283",
+      "price_cents": 4999,
+      "currency": "USD",
+      "inventory_on_hand": 24,
+      "status": "ACTIVE",
+      "created_at": "2026-02-10T23:57:54.165Z",
+      "updated_at": "2026-02-11T00:43:37.711Z",
+      "product_title": "Aurora LED Bar",
+      "product_description": "Smart ambient light bar with 16M colors and screen-sync. USB-C powered.",
+      "store_name": "glowlabs's Shop",
+      "owner_merchant_id": "50354dc6-f8e5-4a1a-8b40-55853c4b1aff",
+      "primary_image_url": null
+    },
+    {
+      "id": "937b40d7-b74e-45a0-b964-1aa1787a7086",
+      "store_id": "8a0fd3db-7baf-419b-bac2-cdc007147bcc",
+      "product_id": "4c42793c-58e1-45a6-89d8-71c4fb457fa6",
+      "price_cents": 2499,
+      "currency": "USD",
+      "inventory_on_hand": 48,
+      "status": "ACTIVE",
+      "created_at": "2026-02-10T23:57:53.677Z",
+      "updated_at": "2026-02-11T00:43:43.807Z",
+      "product_title": "MagSnap Cable Dock",
+      "product_description": "Magnetic cable organizer that keeps your desk clutter-free. Holds 6 cables.",
+      "store_name": "cableking's Shop",
+      "owner_merchant_id": "1ed08bb8-635e-44d3-aa05-e6fd281f9ddd",
+      "primary_image_url": null
+    },
+    {
+      "id": "aae3ee18-0706-4e26-bf88-fc01f008f4ac",
+      "store_id": "ae1bfa44-449b-4447-84bc-f34b224f0474",
+      "product_id": "519f6920-0809-4dbe-bfcc-12643d866c32",
+      "price_cents": 7999,
+      "currency": "USD",
+      "inventory_on_hand": 10,
+      "status": "ACTIVE",
+      "created_at": "2026-02-10T23:57:53.240Z",
+      "updated_at": "2026-02-11T00:43:43.886Z",
+      "product_title": "Walnut Monitor Riser",
+      "product_description": "Handcrafted walnut monitor stand with cable management. Elevates your setup.",
+      "store_name": "deskcraft's Shop",
+      "owner_merchant_id": "d9d5bded-66b1-40e8-b9d6-c1b8d3c7142b",
+      "primary_image_url": null
+    },
+    {
+      "id": "0062a01a-1d5b-47b0-9273-902e04e81c5b",
+      "store_id": "9ac3d2d4-d9a2-4eb3-a64b-2cc35a780e3d",
+      "product_id": "f679f65c-4338-40cb-96dc-74bf31f51202",
+      "price_cents": 2999,
+      "currency": "USD",
+      "inventory_on_hand": 9,
+      "status": "ACTIVE",
+      "created_at": "2026-02-10T23:57:44.025Z",
+      "updated_at": "2026-02-10T23:57:44.076Z",
+      "product_title": "Smoke Test Widget",
+      "product_description": "A premium widget for testing",
+      "store_name": "Smoke Test Store",
+      "owner_merchant_id": "afa75ee8-595e-4d18-b48c-6f4485190291",
+      "primary_image_url": null
+    }
+  ],
+  "pagination": {
+    "count": 5,
+    "limit": 5,
+    "offset": 0,
+    "hasMore": true
+  }
+}

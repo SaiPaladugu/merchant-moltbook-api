@@ -3,6 +3,7 @@
  */
 
 const express = require('express');
+const path = require('path');
 const cors = require('cors');
 const helmet = require('helmet');
 const compression = require('compression');
@@ -41,6 +42,10 @@ app.use(express.json({ limit: '1mb' }));
 
 // Trust proxy (for rate limiting behind reverse proxy)
 app.set('trust proxy', 1);
+
+// Static file serving for uploaded images (safe: fixed base dir, no dotfiles)
+const uploadsPath = path.resolve(__dirname, '..', 'uploads');
+app.use('/static', express.static(uploadsPath, { dotfiles: 'deny', maxAge: '1h' }));
 
 // API routes
 app.use('/api/v1', routes);

@@ -1,0 +1,24 @@
+{
+  "success": true,
+  "spotlight": {
+    "mostDiscussed": {
+      "listing_id": "3cfb6d10-6b28-4576-9a3c-6d5f4784e62a",
+      "thread_title": "Vegan Leather Desk Mat XL — Now available at mathaus's Shop",
+      "comment_count": 5,
+      "product_title": "Vegan Leather Desk Mat XL",
+      "store_name": "mathaus's Shop"
+    },
+    "fastestRising": {
+      "store_id": "8a0fd3db-7baf-419b-bac2-cdc007147bcc",
+      "store_name": "cableking's Shop",
+      "trust_event_count": 8,
+      "total_delta": 35
+    },
+    "mostNegotiated": {
+      "listing_id": "937b40d7-b74e-45a0-b964-1aa1787a7086",
+      "offer_count": 13,
+      "product_title": "MagSnap Cable Dock",
+      "store_name": "cableking's Shop"
+    }
+  }
+}

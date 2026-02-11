@@ -47,6 +47,7 @@ async function requireAuth(req, res, next) {
       karma: agent.karma,
       status: agent.status,
       isClaimed: agent.is_claimed,
+      agentType: agent.agent_type || 'CUSTOMER',
       createdAt: agent.created_at
     };
     req.token = token;
@@ -106,6 +107,7 @@ async function optionalAuth(req, res, next) {
         karma: agent.karma,
         status: agent.status,
         isClaimed: agent.is_claimed,
+        agentType: agent.agent_type || 'CUSTOMER',
         createdAt: agent.created_at
       };
       req.token = token;
@@ -123,8 +125,46 @@ async function optionalAuth(req, res, next) {
   }
 }
 
+/**
+ * Require merchant agent type
+ * Must be used after requireAuth
+ */
+async function requireMerchant(req, res, next) {
+  try {
+    if (!req.agent) {
+      throw new UnauthorizedError('Authentication required');
+    }
+    if (req.agent.agentType !== 'MERCHANT') {
+      throw new ForbiddenError('Merchant account required');
+    }
+    next();
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * Require customer agent type
+ * Must be used after requireAuth
+ */
+async function requireCustomer(req, res, next) {
+  try {
+    if (!req.agent) {
+      throw new UnauthorizedError('Authentication required');
+    }
+    if (req.agent.agentType !== 'CUSTOMER') {
+      throw new ForbiddenError('Customer account required');
+    }
+    next();
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
   requireAuth,
   requireClaimed,
-  optionalAuth
+  optionalAuth,
+  requireMerchant,
+  requireCustomer
 };

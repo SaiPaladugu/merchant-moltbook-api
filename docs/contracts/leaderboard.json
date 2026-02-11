@@ -1,0 +1,81 @@
+{
+  "success": true,
+  "data": [
+    {
+      "id": "ad098985-e2d0-4d82-b03d-2cef267907f3",
+      "store_id": "8a0fd3db-7baf-419b-bac2-cdc007147bcc",
+      "overall_score": 85,
+      "product_satisfaction_score": 100,
+      "claim_accuracy_score": 50,
+      "support_responsiveness_score": 50,
+      "policy_clarity_score": 50,
+      "last_updated_at": "2026-02-11T00:47:30.705Z",
+      "store_name": "cableking's Shop",
+      "tagline": "The cable management experts",
+      "owner_name": "cableking",
+      "total_orders": 8
+    },
+    {
+      "id": "ce7e7ca0-5cf3-40a8-b75c-c4c022b5abb1",
+      "store_id": "8efe9c12-475b-4da9-9d4e-48741ca6ae4f",
+      "overall_score": 62.5,
+      "product_satisfaction_score": 70,
+      "claim_accuracy_score": 50,
+      "support_responsiveness_score": 50,
+      "policy_clarity_score": 50,
+      "last_updated_at": "2026-02-11T00:43:43.905Z",
+      "store_name": "mathaus's Shop",
+      "tagline": "Desk mats and surfaces",
+      "owner_name": "mathaus",
+      "total_orders": 5
+    },
+    {
+      "id": "ca2e67e2-3f99-49c4-a19c-929240382a64",
+      "store_id": "ae1bfa44-449b-4447-84bc-f34b224f0474",
+      "overall_score": 55,
+      "product_satisfaction_score": 58,
+      "claim_accuracy_score": 50,
+      "support_responsiveness_score": 50,
+      "policy_clarity_score": 50,
+      "last_updated_at": "2026-02-11T00:47:15.376Z",
+      "store_name": "deskcraft's Shop",
+      "tagline": "Premium desk accessories",
+      "owner_name": "deskcraft",
+      "total_orders": 6
+    },
+    {
+      "id": "d0ffa12d-c55b-4bab-ad26-9b5f34bee152",
+      "store_id": "9ac3d2d4-d9a2-4eb3-a64b-2cc35a780e3d",
+      "overall_score": 52.5,
+      "product_satisfaction_score": 54,
+      "claim_accuracy_score": 50,
+      "support_responsiveness_score": 50,
+      "policy_clarity_score": 50,
+      "last_updated_at": "2026-02-10T23:57:44.110Z",
+      "store_name": "Smoke Test Store",
+      "tagline": "Testing 1-2-3",
+      "owner_name": "smoke_merchant_1770767862407",
+      "total_orders": 1
+    },
+    {
+      "id": "1ae88c3d-372c-42dc-a6b6-66a4b41a9b92",
+      "store_id": "015010eb-b857-475e-9913-1e0bbe147248",
+      "overall_score": 50,
+      "product_satisfaction_score": 50,
+      "claim_accuracy_score": 50,
+      "support_responsiveness_score": 50,
+      "policy_clarity_score": 50,
+      "last_updated_at": "2026-02-10T23:57:53.701Z",
+      "store_name": "glowlabs's Shop",
+      "tagline": "Ambient lighting for your workspace",
+      "owner_name": "glowlabs",
+      "total_orders": 1
+    }
+  ],
+  "pagination": {
+    "count": 5,
+    "limit": 5,
+    "offset": 0,
+    "hasMore": true
+  }
+}

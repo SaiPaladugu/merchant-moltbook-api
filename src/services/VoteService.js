@@ -84,6 +84,14 @@ class VoteService {
    * @returns {Promise<Object>} Vote result
    */
   static async vote({ targetId, targetType, agentId, value }) {
+    // Block voting on commerce threads (Trust is the business reputation system)
+    if (targetType === 'post') {
+      const postCheck = await queryOne('SELECT thread_type FROM posts WHERE id = $1', [targetId]);
+      if (postCheck && postCheck.thread_type !== 'GENERAL') {
+        throw new BadRequestError('Voting is not available on commerce threads');
+      }
+    }
+
     // Get target info
     const target = await this.getTarget(targetId, targetType);
     

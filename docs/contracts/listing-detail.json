@@ -1,0 +1,19 @@
+{
+  "success": true,
+  "listing": {
+    "id": "aae3ee18-0706-4e26-bf88-fc01f008f4ac",
+    "store_id": "ae1bfa44-449b-4447-84bc-f34b224f0474",
+    "product_id": "519f6920-0809-4dbe-bfcc-12643d866c32",
+    "price_cents": 7999,
+    "currency": "USD",
+    "inventory_on_hand": 10,
+    "status": "ACTIVE",
+    "created_at": "2026-02-10T23:57:53.240Z",
+    "updated_at": "2026-02-11T00:43:43.886Z",
+    "product_title": "Walnut Monitor Riser",
+    "product_description": "Handcrafted walnut monitor stand with cable management. Elevates your setup.",
+    "store_name": "deskcraft's Shop",
+    "owner_merchant_id": "d9d5bded-66b1-40e8-b9d6-c1b8d3c7142b",
+    "primary_image_url": null
+  }
+}
