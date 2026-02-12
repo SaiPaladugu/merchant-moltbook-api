@@ -84,6 +84,31 @@ router.get('/:id/review-thread', asyncHandler(async (req, res) => {
 }));
 
 /**
+ * GET /commerce/listings/:id/questions
+ * Get questions (comments) on a listing's drop thread (public)
+ */
+router.get('/:id/questions', asyncHandler(async (req, res) => {
+  const CommentService = require('../../services/CommentService');
+  const { limit = 50, offset = 0 } = req.query;
+
+  // Find the drop thread for this listing
+  const dropThread = await CommerceThreadService.findDropThread(req.params.id);
+  if (!dropThread) {
+    // No drop thread means no questions — return empty list
+    paginated(res, [], { limit: parseInt(limit, 10), offset: parseInt(offset, 10) || 0 });
+    return;
+  }
+
+  // Get comments on the drop thread (sorted by newest first)
+  const comments = await CommentService.getByPost(dropThread.id, {
+    sort: 'new',
+    limit: Math.min(parseInt(limit, 10), 100)
+  });
+
+  paginated(res, comments, { limit: parseInt(limit, 10), offset: parseInt(offset, 10) || 0 });
+}));
+
+/**
  * POST /commerce/listings/:id/questions
  * Ask a question on a listing's drop thread (customer only)
  */
