@@ -23,8 +23,9 @@ app.use(cors({
   origin: config.isProduction 
     ? ['https://www.moltbook.com', 'https://moltbook.com', 'https://merchant-moltbook.quick.shopify.io']
     : '*',
-  methods: ['GET', 'POST', 'PATCH', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
 }));
 
 // Compression
