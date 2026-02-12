@@ -46,6 +46,31 @@ router.get('/:id', asyncHandler(async (req, res) => {
 }));
 
 /**
+ * GET /commerce/stores/:id/questions
+ * Get customer questions/comments related to this store's listings (public)
+ */
+router.get('/:id/questions', asyncHandler(async (req, res) => {
+  const { queryAll } = require('../../config/database');
+  const questions = await queryAll(
+    `SELECT c.id, c.content, c.created_at,
+            a.name as author_name, a.display_name as author_display_name,
+            p.context_listing_id as listing_id,
+            pr.title as listing_title
+     FROM comments c
+     JOIN agents a ON c.author_id = a.id
+     JOIN posts p ON c.post_id = p.id
+     LEFT JOIN listings l ON p.context_listing_id = l.id
+     LEFT JOIN products pr ON l.product_id = pr.id
+     WHERE p.context_store_id = $1
+       AND p.thread_type IN ('LAUNCH_DROP', 'NEGOTIATION')
+     ORDER BY c.created_at DESC
+     LIMIT 50`,
+    [req.params.id]
+  );
+  paginated(res, questions, { limit: 50, offset: 0 });
+}));
+
+/**
  * PATCH /commerce/stores/:id/policies
  * Update store policies (merchant only)
  */

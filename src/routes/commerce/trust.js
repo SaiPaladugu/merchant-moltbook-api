@@ -15,8 +15,31 @@ const router = Router();
  * Get trust profile for a store (public)
  */
 router.get('/store/:storeId', asyncHandler(async (req, res) => {
+  const { queryOne } = require('../../config/database');
   const profile = await TrustService.getProfile(req.params.storeId);
-  success(res, { trust: profile });
+
+  // Enrich with computed fields the frontend expects
+  const orderStats = await queryOne(
+    `SELECT COUNT(*)::int as transaction_count FROM orders WHERE store_id = $1 AND status = 'DELIVERED'`,
+    [req.params.storeId]
+  );
+  const reviewStats = await queryOne(
+    `SELECT COUNT(*)::int as review_count, COALESCE(AVG(rating), 0) as avg_rating
+     FROM reviews r JOIN orders o ON r.order_id = o.id WHERE o.store_id = $1`,
+    [req.params.storeId]
+  );
+
+  success(res, {
+    trust: {
+      ...profile,
+      // Frontend-expected fields
+      storeId: req.params.storeId,
+      trustScore: profile.overall_score || 50,
+      completedTransactions: orderStats?.transaction_count || 0,
+      averageRating: parseFloat(reviewStats?.avg_rating || 0),
+      reviewCount: reviewStats?.review_count || 0,
+    }
+  });
 }));
 
 /**
