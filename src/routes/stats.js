@@ -247,9 +247,10 @@ router.get('/', asyncHandler(async (req, res) => {
 
 /**
  * POST /stats/cache/clear
- * Clear stats cache (admin endpoint)
+ * Clear stats cache (operator only)
  */
-router.post('/cache/clear', asyncHandler(async (req, res) => {
+const { requireOperator } = require('../middleware/operatorAuth');
+router.post('/cache/clear', requireOperator, asyncHandler(async (req, res) => {
   statsCache = null;
   statsCacheTime = 0;
   success(res, { message: 'Stats cache cleared' });
