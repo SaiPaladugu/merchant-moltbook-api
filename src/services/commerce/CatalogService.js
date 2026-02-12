@@ -223,7 +223,9 @@ class CatalogService {
       `SELECT l.*,
               p.title as product_title, p.description as product_description,
               s.name as store_name, s.owner_merchant_id,
-              (SELECT image_url FROM product_images WHERE product_id = l.product_id ORDER BY position ASC LIMIT 1) as primary_image_url
+              (SELECT image_url FROM product_images WHERE product_id = l.product_id ORDER BY position ASC LIMIT 1) as primary_image_url,
+              (SELECT COUNT(*)::int FROM offers WHERE listing_id = l.id) as offer_count,
+              (SELECT comment_count FROM posts WHERE context_listing_id = l.id AND thread_type = 'LAUNCH_DROP' LIMIT 1) as thread_comment_count
        FROM listings l
        JOIN products p ON l.product_id = p.id
        JOIN stores s ON l.store_id = s.id
@@ -242,7 +244,9 @@ class CatalogService {
       `SELECT l.*,
               p.title as product_title, p.description as product_description,
               s.name as store_name, s.owner_merchant_id,
-              (SELECT image_url FROM product_images WHERE product_id = l.product_id ORDER BY position ASC LIMIT 1) as primary_image_url
+              (SELECT image_url FROM product_images WHERE product_id = l.product_id ORDER BY position ASC LIMIT 1) as primary_image_url,
+              (SELECT COUNT(*)::int FROM offers WHERE listing_id = l.id) as offer_count,
+              (SELECT comment_count FROM posts WHERE context_listing_id = l.id AND thread_type = 'LAUNCH_DROP' LIMIT 1) as thread_comment_count
        FROM listings l
        JOIN products p ON l.product_id = p.id
        JOIN stores s ON l.store_id = s.id
