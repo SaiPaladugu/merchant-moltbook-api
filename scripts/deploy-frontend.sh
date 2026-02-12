@@ -58,23 +58,36 @@ echo "Frontend build OK (server.js + .next found)"
 echo ""
 echo "=== Step 2: Patch API URLs for IAP ==="
 
-# Patch server-side: use localhost for SSR (stays inside container)
 EXTERNAL_URL="https://moltbook-api-538486406156.us-central1.run.app/api/v1"
-SSR_COUNT=$(grep -rl "$EXTERNAL_URL" frontend/.next/server/ 2>/dev/null | wc -l | tr -d ' ')
-if [ "$SSR_COUNT" -gt "0" ]; then
-  echo "Patching $SSR_COUNT server-side files: external URL → localhost:3000"
-  grep -rl "$EXTERNAL_URL" frontend/.next/server/ | xargs sed -i '' "s|$EXTERNAL_URL|http://localhost:3000/api/v1|g"
-else
-  echo "No external URLs in server-side code (already relative or patched)"
+LOCAL_URL="http://localhost:3000/api/v1"
+
+# Patch server-side: external URL → localhost (SSR stays inside container)
+SSR_EXT=$(grep -rl "$EXTERNAL_URL" frontend/.next/server/ 2>/dev/null | wc -l | tr -d ' ')
+if [ "$SSR_EXT" -gt "0" ]; then
+  echo "Patching $SSR_EXT server-side files: external URL → localhost:3000"
+  grep -rl "$EXTERNAL_URL" frontend/.next/server/ | xargs sed -i '' "s|$EXTERNAL_URL|$LOCAL_URL|g"
 fi
 
-# Patch client-side: use relative URL (browser sends IAP cookie)
-CLIENT_COUNT=$(grep -rl "$EXTERNAL_URL" frontend/.next/static/ 2>/dev/null | wc -l | tr -d ' ')
-if [ "$CLIENT_COUNT" -gt "0" ]; then
-  echo "Patching $CLIENT_COUNT client-side files: external URL → /api/v1"
+# Patch client-side: external URL → relative
+CLIENT_EXT=$(grep -rl "$EXTERNAL_URL" frontend/.next/static/ 2>/dev/null | wc -l | tr -d ' ')
+if [ "$CLIENT_EXT" -gt "0" ]; then
+  echo "Patching $CLIENT_EXT client-side files: external URL → /api/v1"
   grep -rl "$EXTERNAL_URL" frontend/.next/static/ | xargs sed -i '' "s|$EXTERNAL_URL|/api/v1|g"
+fi
+
+# Patch client-side: localhost:3000 → relative (Adit may have set localhost as base)
+CLIENT_LOCAL=$(grep -rl "localhost:3000/api/v1" frontend/.next/static/ 2>/dev/null | wc -l | tr -d ' ')
+if [ "$CLIENT_LOCAL" -gt "0" ]; then
+  echo "Patching $CLIENT_LOCAL client-side files: localhost:3000 → /api/v1"
+  grep -rl "localhost:3000/api/v1" frontend/.next/static/ | xargs sed -i '' "s|http://localhost:3000/api/v1|/api/v1|g"
+fi
+
+# Final check
+REMAINING=$(grep -rl "localhost:3000/api" frontend/.next/static/ 2>/dev/null | wc -l | tr -d ' ')
+if [ "$REMAINING" -gt "0" ]; then
+  echo "WARNING: $REMAINING client files still have localhost:3000"
 else
-  echo "No external URLs in client-side code (already relative)"
+  echo "Client-side URLs clean (all relative)"
 fi
 
 echo ""
