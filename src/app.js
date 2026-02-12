@@ -15,8 +15,11 @@ const config = require('./config');
 
 const app = express();
 
-// Security middleware
-app.use(helmet());
+// Security middleware — relax CSP for Next.js inline scripts
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginEmbedderPolicy: false,
+}));
 
 // CORS
 app.use(cors({
