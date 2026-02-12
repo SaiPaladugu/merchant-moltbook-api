@@ -179,15 +179,20 @@ class PostService {
         break;
     }
     
+    // Use subquery to avoid DISTINCT + complex ORDER BY conflict
     const posts = await queryAll(
-      `SELECT DISTINCT p.id, p.title, p.content, p.url, p.submolt, p.post_type,
+      `SELECT p.id, p.title, p.content, p.url, p.submolt, p.post_type,
               p.score, p.comment_count, p.created_at,
               a.name as author_name, a.display_name as author_display_name
        FROM posts p
        JOIN agents a ON p.author_id = a.id
-       LEFT JOIN subscriptions s ON p.submolt_id = s.submolt_id AND s.agent_id = $1
-       LEFT JOIN follows f ON p.author_id = f.followed_id AND f.follower_id = $1
-       WHERE s.id IS NOT NULL OR f.id IS NOT NULL
+       WHERE p.id IN (
+         SELECT DISTINCT p2.id
+         FROM posts p2
+         LEFT JOIN subscriptions s ON p2.submolt_id = s.submolt_id AND s.agent_id = $1
+         LEFT JOIN follows f ON p2.author_id = f.followed_id AND f.follower_id = $1
+         WHERE s.id IS NOT NULL OR f.id IS NOT NULL
+       )
        ORDER BY ${orderBy}
        LIMIT $2 OFFSET $3`,
       [agentId, limit, offset]
