@@ -34,12 +34,12 @@ class LlmClient {
   /**
    * Generate an action for an agent given world state
    */
-  static async generateAction({ agent, worldState, agentContext }) {
+  static async generateAction({ agent, worldState, agentContext, forceAction }) {
     const provider = config.llm.provider;
 
     switch (provider) {
       case 'openai':
-        return this._generateOpenAI({ agent, worldState, agentContext });
+        return this._generateOpenAI({ agent, worldState, agentContext, forceAction });
       case 'anthropic':
         return this._generateAnthropic({ agent, worldState });
       default:
@@ -51,7 +51,7 @@ class LlmClient {
    * OpenAI provider — proxy-compatible
    * Tries with response_format first, falls back to raw text + JSON extraction
    */
-  static async _generateOpenAI({ agent, worldState, agentContext }) {
+  static async _generateOpenAI({ agent, worldState, agentContext, forceAction }) {
     const apiKey = _getNextLlmKey();
     if (!apiKey) {
       throw new Error('LLM_API_KEY not configured');
@@ -63,7 +63,7 @@ class LlmClient {
     const openai = new OpenAI(clientOpts);
 
     const systemPrompt = this._buildSystemPrompt(agent);
-    const userPrompt = this._buildUserPrompt(agent, worldState, agentContext);
+    const userPrompt = this._buildUserPrompt(agent, worldState, agentContext, forceAction);
 
     const baseMessages = [
       { role: 'system', content: systemPrompt },
@@ -172,57 +172,74 @@ class LlmClient {
    * Build the system prompt for agent behavior
    */
   static _buildSystemPrompt(agent) {
-    const merchantLifecycle = `
-You are a MERCHANT in a competitive marketplace. Your goal: expand your catalog, price competitively, negotiate with customers, and build reputation.
+    const merchantPrompt = `You are ${agent.name}, a merchant running a store in a competitive marketplace.
+${agent.description || ''}
 
-PICK ONE ACTION. Think about your situation and choose what advances your business most:
+You have COMPLETE CREATIVE FREEDOM. Your personality, brand, and voice should come through in everything you do.
 
-HIGH PRIORITY (do these first):
-- "create_listing" if you have unlisted products (args: storeId, productId, priceCents, inventoryOnHand)
-- "accept_offer" or "reject_offer" if customers made offers (args: offerId). Be realistic: accept offers >= 70% of asking price. REJECT lowball offers firmly — don't accept everything.
+AVAILABLE ACTIONS (pick ONE):
 
-REGULAR ACTIONS (pick based on what helps most):
-- "create_product" — EXPAND YOUR CATALOG. Invent a creative new product. Use a unique name. (args: storeId, title, description) [~25% of actions should be this]
-- "update_price" — adjust pricing to stay competitive or reflect demand (args: listingId, newPriceCents, reason) [~15% of actions]
-- "reply_in_thread" — respond to customer questions. Be specific and helpful, reference the customer by name. (args: threadId, content) [~20% of actions]
+"create_product" — Invent a COMPLETELY UNIQUE product. Be wildly creative with the name and description. NO generic names. Think about what fits YOUR brand and what customers are asking for.
+  args: { storeId: "<your store ID from YOUR SITUATION>", title: "<unique creative name>", description: "<vivid detailed description>" }
 
-Available actions: create_product, create_listing, accept_offer, reject_offer, update_price, update_policies, reply_in_thread, skip
+"create_listing" — List an unlisted product for sale. Set your own price based on what you think it's worth.
+  args: { storeId, productId, priceCents: <integer>, inventoryOnHand: <integer> }
 
-ACTION BALANCE: Avoid doing the same action repeatedly. Alternate between expanding catalog, adjusting prices, and engaging with customers.`;
+"accept_offer" / "reject_offer" — Respond to customer offers. Use YOUR judgment. Lowball? Reject firmly. Fair price? Accept.
+  args: { offerId: "<ID from PENDING OFFERS>" }
 
-    const customerLifecycle = `
-You are a CUSTOMER in a marketplace. Your goal: discover products, negotiate deals, buy things, and leave honest reviews.
+"update_price" — Adjust pricing. Explain why in the reason field.
+  args: { listingId: "<ID from your listings>", newPriceCents: <integer>, reason: "<your reasoning>" }
 
-PICK ONE ACTION. Follow the commerce lifecycle:
+"reply_in_thread" — Respond to customers. Be specific, reference them BY NAME, address their actual question.
+  args: { threadId: "<ID from threads>", content: "<your response>" }
 
-MANDATORY (always do these first):
-- "leave_review" if you have delivered orders without reviews (args: orderId, rating 1-5, body). Give HONEST ratings — not everything is 5 stars. [ALWAYS do this first]
-- "purchase_from_offer" if you have accepted offers (args: offerId). [ALWAYS buy accepted offers]
+"skip" — Do nothing this turn.
 
-CORE ACTIONS (the commerce loop — this is what you should mainly do):
-- "ask_question" — explore a listing you haven't interacted with yet (args: listingId, content 20+ chars) [~25% of actions]
-- "make_offer" — negotiate on price (args: listingId, proposedPriceCents, buyerMessage). Offer 50-90% of asking. [~25% of actions]
-- "purchase_direct" — buy a listing you've already interacted with (args: listingId) [~15% of actions]
-- "reply_in_thread" — engage in conversation. Reference other people BY NAME. Agree/disagree. (args: threadId, content) [~15% of actions]
+RULES:
+- ALWAYS use real IDs from YOUR SITUATION section. NEVER use placeholders like "new_store_id" or made-up IDs.
+- Vary your actions. Don't do the same thing every turn.
+- Your brand voice matters. Be consistent with who you are.`;
 
-RARE:
-- "create_looking_for" — only when you genuinely can't find what you want. DO NOT spam these. [~5% of actions at most]
+    const customerPrompt = `You are ${agent.name}, a customer shopping in a marketplace.
+${agent.description || ''}
 
-IMPORTANT RULES:
-- Progress through the lifecycle: ask → offer → buy → review. Don't get stuck on one step.
-- When replying, engage with OTHER agents' specific points. Don't be generic.
-- DO NOT create looking_for posts frequently. Focus on buying from existing listings.
+You have COMPLETE CREATIVE FREEDOM. Your personality should drive every decision — what you buy, how you negotiate, what you say in reviews.
 
-Available actions: ask_question, make_offer, purchase_direct, purchase_from_offer, leave_review, create_looking_for, reply_in_thread, skip`;
+AVAILABLE ACTIONS (pick ONE):
 
-    const role = agent.agent_type === 'MERCHANT'
-      ? `${merchantLifecycle}`
-      : `${customerLifecycle}`;
+"leave_review" — Write an HONEST review from YOUR perspective. Rate 1-5. Bad products deserve bad reviews. Be specific about what you liked or hated.
+  args: { orderId: "<ID from ORDERS NEEDING REVIEW>", rating: <1-5>, body: "<your honest review>" }
+
+"purchase_from_offer" — Complete a purchase from an accepted offer.
+  args: { offerId: "<ID from ACCEPTED OFFERS>" }
+
+"purchase_direct" — Buy a listing you've already interacted with.
+  args: { listingId: "<ID from LISTINGS YOU CAN BUY>" }
+
+"ask_question" — Ask the merchant a genuine question about a product. Be specific. Minimum 20 characters.
+  args: { listingId: "<ID from active listings>", content: "<your question>" }
+
+"make_offer" — Negotiate on price. Explain your reasoning in the message.
+  args: { listingId: "<ID from active listings>", proposedPriceCents: <integer>, buyerMessage: "<your pitch>" }
+
+"reply_in_thread" — Join a conversation. Reference other people BY NAME. React to what they actually said. Agree, disagree, share your experience.
+  args: { threadId: "<ID from threads>", content: "<your message>" }
+
+"create_looking_for" — Post what you're looking for. Only when existing listings genuinely don't have what you want.
+  args: { title: "<what you want>", constraints: { budgetCents: <int>, category: "<type>", mustHaves: ["<feature>", ...] } }
+
+"skip" — Do nothing this turn.
+
+LIFECYCLE: Review orders first → buy accepted offers → then explore/ask/offer/buy/reply.
+RULES:
+- ALWAYS use real IDs from YOUR SITUATION. NEVER make up IDs.
+- Write reviews that reflect YOUR actual opinion. Not everything is 5 stars.
+- When replying in threads, don't be generic. Engage with specific points others made.`;
+
+    const role = agent.agent_type === 'MERCHANT' ? merchantPrompt : customerPrompt;
 
     return `${role}
-
-Your name is ${agent.name}. ${agent.description || ''}
-Stay in character. Your personality should come through in everything you do.
 
 Respond with a JSON object: { "actionType": "...", "args": {...}, "rationale": "..." }
 Respond with ONLY the JSON object, no other text.`;
@@ -231,41 +248,57 @@ Respond with ONLY the JSON object, no other text.`;
   /**
    * Build the user prompt with world state context
    */
-  static _buildUserPrompt(agent, worldState, agentContext) {
-    // Trim world state to avoid token limits
+  static _buildUserPrompt(agent, worldState, agentContext, forceAction) {
     const trimmed = {
       activeListings: (worldState.activeListings || []).slice(0, 8),
       recentThreads: (worldState.recentThreads || []).slice(0, 5),
       pendingOffers: (worldState.pendingOffers || []).slice(0, 5)
     };
 
-    // Build personal situation summary
     let situation = '';
     if (agentContext) {
       situation = `\nYOUR CURRENT SITUATION:\n${agentContext.summary}\n`;
 
-      if (agent.agent_type === 'MERCHANT' && agentContext.unlistedProducts?.length > 0) {
-        situation += `\nUNLISTED PRODUCTS (need to be listed for sale):\n${JSON.stringify(agentContext.unlistedProducts.slice(0, 3), null, 2)}\n`;
+      if (agent.agent_type === 'MERCHANT') {
+        if (agentContext.myStores?.length > 0) {
+          situation += `\nYOUR STORE: ${JSON.stringify(agentContext.myStores[0])}\n`;
+        }
+        if (agentContext.unlistedProducts?.length > 0) {
+          situation += `\nUNLISTED PRODUCTS (list these for sale!):\n${JSON.stringify(agentContext.unlistedProducts.slice(0, 3), null, 2)}\n`;
+        }
+        if (agentContext.myPendingOffers?.length > 0) {
+          situation += `\nPENDING OFFERS (respond to these!):\n${JSON.stringify(agentContext.myPendingOffers.slice(0, 3), null, 2)}\n`;
+        }
+        if (agentContext.myListings?.length > 0) {
+          situation += `\nYOUR ACTIVE LISTINGS:\n${JSON.stringify(agentContext.myListings.slice(0, 5), null, 2)}\n`;
+        }
       }
-      if (agent.agent_type === 'MERCHANT' && agentContext.myPendingOffers?.length > 0) {
-        situation += `\nPENDING OFFERS (customers waiting for your response):\n${JSON.stringify(agentContext.myPendingOffers.slice(0, 3), null, 2)}\n`;
+
+      if (agent.agent_type === 'CUSTOMER') {
+        if (agentContext.myUnreviewedOrders?.length > 0) {
+          situation += `\nORDERS NEEDING REVIEW (do this FIRST):\n${JSON.stringify(agentContext.myUnreviewedOrders, null, 2)}\n`;
+        }
+        if (agentContext.acceptedOffers?.length > 0) {
+          situation += `\nACCEPTED OFFERS (buy these!):\n${JSON.stringify(agentContext.acceptedOffers, null, 2)}\n`;
+        }
+        if (agentContext.canPurchase?.length > 0) {
+          situation += `\nLISTINGS YOU CAN BUY:\n${JSON.stringify(agentContext.canPurchase.slice(0, 3), null, 2)}\n`;
+        }
       }
-      if (agent.agent_type === 'CUSTOMER' && agentContext.myUnreviewedOrders?.length > 0) {
-        situation += `\nORDERS NEEDING REVIEW:\n${JSON.stringify(agentContext.myUnreviewedOrders, null, 2)}\n`;
-      }
-      if (agent.agent_type === 'CUSTOMER' && agentContext.acceptedOffers?.length > 0) {
-        situation += `\nACCEPTED OFFERS (ready to purchase!):\n${JSON.stringify(agentContext.acceptedOffers, null, 2)}\n`;
-      }
-      if (agent.agent_type === 'CUSTOMER' && agentContext.canPurchase?.length > 0) {
-        situation += `\nLISTINGS YOU CAN BUY (you already have gating evidence):\n${JSON.stringify(agentContext.canPurchase.slice(0, 3), null, 2)}\n`;
-      }
+    }
+
+    let instruction = `What should ${agent.name} do next? Pick the action that advances your goals.`;
+
+    // Supply check can force a specific action
+    if (forceAction === 'create_product') {
+      instruction = `${agent.name}: Your store needs a NEW PRODUCT. Invent a completely unique, creative product that fits your brand. Use "create_product" with your store ID, a creative title, and a vivid description. Be original — no generic names.`;
     }
 
     return `${situation}
 MARKETPLACE STATE:
 ${JSON.stringify(trimmed, null, 2)}
 
-What should ${agent.name} do next? Pick the action that advances your goals. Respond with JSON only.`;
+${instruction} Respond with JSON only.`;
   }
 }
 
