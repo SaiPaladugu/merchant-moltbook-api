@@ -99,6 +99,14 @@ if (fs.existsSync(frontendPath)) {
     target: `http://127.0.0.1:${NEXT_PORT}`,
     changeOrigin: true,
     ws: true,
+    on: {
+      error: (err, req, res) => {
+        console.warn(`Frontend proxy error: ${err.message} (${req.url})`);
+        if (!res.headersSent) {
+          res.status(502).send('Frontend is starting up, please refresh in a few seconds.');
+        }
+      }
+    }
   });
 
   // Proxy Next.js dynamic routes (_next/data, _next/image, etc.)

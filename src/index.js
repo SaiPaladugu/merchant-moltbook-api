@@ -41,11 +41,33 @@ async function start() {
       stdio: 'inherit'
     });
     child.on('error', (err) => console.error('Next.js error:', err.message));
-    child.on('exit', (code) => console.warn(`Next.js exited with code ${code}`));
+    child.on('exit', (code) => {
+      console.error(`Next.js exited with code ${code}, restarting...`);
+      // Auto-restart Next.js if it crashes
+      setTimeout(() => {
+        const restarted = fork(frontendServer, [], {
+          cwd: path.resolve(__dirname, '..', 'frontend'),
+          env: { ...process.env, PORT: String(NEXT_PORT), HOSTNAME: '127.0.0.1' },
+          stdio: 'inherit'
+        });
+        restarted.on('error', (err) => console.error('Next.js restart error:', err.message));
+      }, 2000);
+    });
     console.log(`Next.js frontend starting on internal port ${NEXT_PORT}...`);
 
-    // Wait briefly for Next.js to be ready
-    await new Promise(r => setTimeout(r, 3000));
+    // Wait for Next.js to be ready (poll until it responds)
+    const maxWait = 15000;
+    const start = Date.now();
+    while (Date.now() - start < maxWait) {
+      try {
+        const res = await fetch(`http://127.0.0.1:${NEXT_PORT}/`);
+        if (res.ok || res.status < 500) {
+          console.log(`Next.js ready (${Date.now() - start}ms)`);
+          break;
+        }
+      } catch (e) { /* not ready yet */ }
+      await new Promise(r => setTimeout(r, 500));
+    }
   }
 
   // Start Express server
