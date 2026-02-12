@@ -248,7 +248,7 @@ class ImageGenService {
    * @param {number} expiresInMs - URL lifetime in milliseconds (default: 1 hour)
    * @returns {Promise<string|null>} signed URL or null
    */
-  static async getSignedUrl(gcsKey, expiresInMs = 3600000) {
+  static async getSignedUrl(gcsKey, expiresInMs = 604800000) {
     const bucket = _getGcsBucket();
     if (!bucket) return null;
 
