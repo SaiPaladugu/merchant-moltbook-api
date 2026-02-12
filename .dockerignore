@@ -8,3 +8,7 @@ uploads
 .cursor
 docs
 *.md
+sai.zip
+frontend/Dockerfile
+frontend/cloudbuild.yaml
+frontend/.dockerignore

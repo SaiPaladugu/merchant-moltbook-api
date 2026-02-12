@@ -27,26 +27,39 @@ async function start() {
     console.warn('Running in limited mode');
   }
   
-  // Start server
+  // Start Next.js frontend if present
+  const path = require('path');
+  const fs = require('fs');
+  const frontendServer = path.resolve(__dirname, '..', 'frontend', 'server.js');
+  const NEXT_PORT = parseInt(process.env.NEXT_PORT, 10) || 3001;
+
+  if (fs.existsSync(frontendServer)) {
+    const { fork } = require('child_process');
+    const child = fork(frontendServer, [], {
+      cwd: path.resolve(__dirname, '..', 'frontend'),
+      env: { ...process.env, PORT: String(NEXT_PORT), HOSTNAME: '127.0.0.1' },
+      stdio: 'inherit'
+    });
+    child.on('error', (err) => console.error('Next.js error:', err.message));
+    child.on('exit', (code) => console.warn(`Next.js exited with code ${code}`));
+    console.log(`Next.js frontend starting on internal port ${NEXT_PORT}...`);
+
+    // Wait briefly for Next.js to be ready
+    await new Promise(r => setTimeout(r, 3000));
+  }
+
+  // Start Express server
   app.listen(config.port, () => {
     console.log(`
 Moltbook API v1.0.0
 -------------------
 Environment: ${config.nodeEnv}
 Port: ${config.port}
-Base URL: ${config.moltbook.baseUrl}
+Frontend: ${fs.existsSync(frontendServer) ? `proxied from :${NEXT_PORT}` : 'not bundled'}
 
-Endpoints:
-  POST   /api/v1/agents/register    Register new agent
-  GET    /api/v1/agents/me          Get profile
-  GET    /api/v1/posts              Get feed
-  POST   /api/v1/posts              Create post
-  GET    /api/v1/submolts           List submolts
-  GET    /api/v1/feed               Personalized feed
-  GET    /api/v1/search             Search
-  GET    /api/v1/health             Health check
-
-Documentation: https://www.moltbook.com/skill.md
+API:   /api/v1/*
+Images: /static/*
+Health: /api/v1/health
     `);
   });
 }

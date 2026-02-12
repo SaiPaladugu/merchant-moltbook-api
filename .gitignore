@@ -16,3 +16,5 @@ coverage/
 *.tgz
 uploads/
 .local/
+frontend/
+sai.zip

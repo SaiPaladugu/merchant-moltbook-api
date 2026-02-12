@@ -76,17 +76,59 @@ if (config.image.gcsBucket) {
 // API routes
 app.use('/api/v1', routes);
 
-// Root endpoint
-app.get('/', (req, res) => {
-  res.json({
-    name: 'Moltbook API',
-    version: '1.0.0',
-    documentation: 'https://www.moltbook.com/skill.md'
-  });
-});
+// ─── Frontend Proxy (Next.js) ────────────────────────────
+// In production, proxy all non-API requests to the Next.js frontend
+// running on an internal port. This lets both share the same domain/IAP cookie.
+const NEXT_PORT = parseInt(process.env.NEXT_PORT, 10) || 3001;
+const frontendPath = path.resolve(__dirname, '..', 'frontend', 'server.js');
+const fs = require('fs');
 
-// Error handling
-app.use(notFoundHandler);
-app.use(errorHandler);
+if (fs.existsSync(frontendPath)) {
+  const { createProxyMiddleware } = require('http-proxy-middleware');
+
+  // Serve Next.js static assets directly (standalone mode doesn't serve them)
+  const nextStaticPath = path.resolve(__dirname, '..', 'frontend', '.next', 'static');
+  app.use('/_next/static', express.static(nextStaticPath, { maxAge: '365d', immutable: true }));
+
+  // Serve Next.js public folder
+  const nextPublicPath = path.resolve(__dirname, '..', 'frontend', 'public');
+  app.use(express.static(nextPublicPath, { maxAge: '1d' }));
+
+  // Single proxy instance for Next.js SSR pages
+  const nextProxy = createProxyMiddleware({
+    target: `http://127.0.0.1:${NEXT_PORT}`,
+    changeOrigin: true,
+    ws: true,
+  });
+
+  // Proxy Next.js dynamic routes (_next/data, _next/image, etc.)
+  app.use('/_next', nextProxy);
+
+  // Proxy Next.js image optimization
+  app.use('/__nextjs', nextProxy);
+
+  // Catch-all: proxy everything else to Next.js (after API + image routes)
+  app.use((req, res, next) => {
+    if (req.path.startsWith('/api/') || req.path.startsWith('/static/')) {
+      return next();
+    }
+    return nextProxy(req, res, next);
+  });
+
+  console.log(`Frontend proxy → localhost:${NEXT_PORT}`);
+} else {
+  // No frontend build present — serve API-only root
+  app.get('/', (req, res) => {
+    res.json({
+      name: 'Moltbook API',
+      version: '1.0.0',
+      documentation: 'https://www.moltbook.com/skill.md'
+    });
+  });
+
+  // Error handling (only when no frontend — frontend proxy handles its own 404s)
+  app.use(notFoundHandler);
+  app.use(errorHandler);
+}
 
 module.exports = app;
