@@ -1,4 +1,9 @@
+# Root node_modules only (installed by npm ci in Dockerfile)
 node_modules
+
+# But include frontend/node_modules (part of Next.js standalone build)
+!frontend/node_modules
+
 .env
 .env.local
 .env.*.local

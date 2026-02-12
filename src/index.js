@@ -34,40 +34,45 @@ async function start() {
   const NEXT_PORT = parseInt(process.env.NEXT_PORT, 10) || 3001;
 
   if (fs.existsSync(frontendServer)) {
-    const { fork } = require('child_process');
-    const child = fork(frontendServer, [], {
-      cwd: path.resolve(__dirname, '..', 'frontend'),
-      env: { ...process.env, PORT: String(NEXT_PORT), HOSTNAME: '127.0.0.1' },
-      stdio: 'inherit'
-    });
-    child.on('error', (err) => console.error('Next.js error:', err.message));
-    child.on('exit', (code) => {
-      console.error(`Next.js exited with code ${code}, restarting...`);
-      // Auto-restart Next.js if it crashes
-      setTimeout(() => {
-        const restarted = fork(frontendServer, [], {
-          cwd: path.resolve(__dirname, '..', 'frontend'),
-          env: { ...process.env, PORT: String(NEXT_PORT), HOSTNAME: '127.0.0.1' },
-          stdio: 'inherit'
-        });
-        restarted.on('error', (err) => console.error('Next.js restart error:', err.message));
-      }, 2000);
-    });
-    console.log(`Next.js frontend starting on internal port ${NEXT_PORT}...`);
+    const { spawn } = require('child_process');
+    
+    function startNextJs() {
+      console.log(`Spawning Next.js on port ${NEXT_PORT}...`);
+      const child = spawn(process.execPath, [frontendServer], {
+        cwd: path.resolve(__dirname, '..', 'frontend'),
+        env: { ...process.env, PORT: String(NEXT_PORT), HOSTNAME: '127.0.0.1', NODE_ENV: 'production' },
+        stdio: ['ignore', 'pipe', 'pipe']
+      });
+
+      child.stdout.on('data', (data) => process.stdout.write(`[next] ${data}`));
+      child.stderr.on('data', (data) => process.stderr.write(`[next:err] ${data}`));
+      child.on('error', (err) => console.error('Next.js spawn error:', err.message));
+      child.on('exit', (code, signal) => {
+        console.error(`Next.js exited (code=${code}, signal=${signal}), restarting in 3s...`);
+        setTimeout(startNextJs, 3000);
+      });
+
+      return child;
+    }
+
+    startNextJs();
 
     // Wait for Next.js to be ready (poll until it responds)
-    const maxWait = 15000;
-    const start = Date.now();
-    while (Date.now() - start < maxWait) {
+    const maxWait = 20000;
+    const startTime = Date.now();
+    let ready = false;
+    while (Date.now() - startTime < maxWait) {
       try {
         const res = await fetch(`http://127.0.0.1:${NEXT_PORT}/`);
         if (res.ok || res.status < 500) {
-          console.log(`Next.js ready (${Date.now() - start}ms)`);
+          console.log(`Next.js ready (${Date.now() - startTime}ms)`);
+          ready = true;
           break;
         }
       } catch (e) { /* not ready yet */ }
       await new Promise(r => setTimeout(r, 500));
     }
+    if (!ready) console.warn('Next.js did not become ready within 20s — continuing anyway');
   }
 
   // Start Express server

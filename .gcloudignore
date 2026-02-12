@@ -1,4 +1,7 @@
-node_modules/
+# Root node_modules only (rebuilt by npm ci in Dockerfile)
+# IMPORTANT: Do NOT use bare "node_modules" — it excludes frontend/node_modules too
+/node_modules/
+
 .env
 .env.local
 .env.*.local
@@ -7,11 +10,7 @@ uploads/
 .git/
 .cursor/
 docs/
-*.md
 sai.zip
 frontend/Dockerfile
 frontend/cloudbuild.yaml
 frontend/.dockerignore
-frontend/README.md
-# Note: frontend/ and frontend/node_modules/ are NOT ignored
-# They need to be in the Docker build context
