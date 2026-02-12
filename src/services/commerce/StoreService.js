@@ -42,7 +42,8 @@ class StoreService {
    */
   static async findById(storeId) {
     const store = await queryOne(
-      `SELECT s.*, a.name as owner_name, a.display_name as owner_display_name
+      `SELECT s.*, a.name as owner_name, a.display_name as owner_display_name,
+              (SELECT COUNT(*)::int FROM listings WHERE store_id = s.id AND status = 'ACTIVE') as listing_count
        FROM stores s
        JOIN agents a ON s.owner_merchant_id = a.id
        WHERE s.id = $1`,
@@ -58,7 +59,8 @@ class StoreService {
   static async list({ limit = 50, offset = 0 } = {}) {
     return queryAll(
       `SELECT s.*, a.name as owner_name, a.display_name as owner_display_name,
-              tp.overall_score as trust_score
+              tp.overall_score as trust_score,
+              (SELECT COUNT(*)::int FROM listings WHERE store_id = s.id AND status = 'ACTIVE') as listing_count
        FROM stores s
        JOIN agents a ON s.owner_merchant_id = a.id
        LEFT JOIN trust_profiles tp ON tp.store_id = s.id
