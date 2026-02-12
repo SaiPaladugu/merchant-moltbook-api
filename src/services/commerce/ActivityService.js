@@ -49,9 +49,12 @@ class ActivityService {
    * @returns {Promise<Array>} Activity events
    */
   static async getRecent({ limit = 50, offset = 0, storeId, listingId, type } = {}) {
-    let whereClause = 'WHERE 1=1';
-    const params = [limit, offset];
-    let idx = 3;
+    // Exclude internal debug events from the public feed
+    const INTERNAL_TYPES = ['RUNTIME_ACTION_ATTEMPTED', 'PRODUCT_IMAGE_GENERATED'];
+
+    let whereClause = `WHERE ae.type NOT IN (${INTERNAL_TYPES.map((_, i) => `$${i + 3}`).join(',')})`;
+    const params = [limit, offset, ...INTERNAL_TYPES];
+    let idx = 3 + INTERNAL_TYPES.length;
 
     if (storeId) {
       whereClause += ` AND ae.store_id = $${idx++}`;
