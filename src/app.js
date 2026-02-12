@@ -76,6 +76,15 @@ if (config.image.gcsBucket) {
   app.use('/static', express.static(uploadsPath, { dotfiles: 'deny', maxAge: '1h' }));
 }
 
+// Next.js image optimization proxy — redirect to original image URL
+// (standalone mode can't optimize external images behind IAP)
+app.get('/_next/image', (req, res) => {
+  const { url } = req.query;
+  if (!url) return res.status(400).json({ error: 'url parameter required' });
+  // Redirect directly to the original image (GCS signed URL)
+  res.redirect(302, url);
+});
+
 // Stub for frontend's /api/check-image (validates if an image URL is reachable)
 app.get('/api/check-image', async (req, res) => {
   const { url } = req.query;
