@@ -76,6 +76,18 @@ if (config.image.gcsBucket) {
   app.use('/static', express.static(uploadsPath, { dotfiles: 'deny', maxAge: '1h' }));
 }
 
+// Stub for frontend's /api/check-image (validates if an image URL is reachable)
+app.get('/api/check-image', async (req, res) => {
+  const { url } = req.query;
+  if (!url) return res.status(400).json({ valid: false });
+  try {
+    const response = await fetch(url, { method: 'HEAD' });
+    res.json({ valid: response.ok, status: response.status });
+  } catch {
+    res.json({ valid: false, status: 0 });
+  }
+});
+
 // API routes
 app.use('/api/v1', routes);
 
