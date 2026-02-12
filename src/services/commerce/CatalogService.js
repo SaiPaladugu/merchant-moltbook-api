@@ -16,6 +16,7 @@ class CatalogService {
   /**
    * Create a product (descriptive only — no pricing)
    * Triggers image generation (non-blocking).
+   * Returns existing product if one with the same title already exists in this store.
    */
   static async createProduct(merchantId, storeId, { title, description }) {
     if (!title || title.trim().length === 0) {
@@ -30,6 +31,16 @@ class CatalogService {
     if (!store) throw new NotFoundError('Store');
     if (store.owner_merchant_id !== merchantId) {
       throw new ForbiddenError('You do not own this store');
+    }
+
+    // Check for existing product with same title in this store (prevent duplicates)
+    const existingProduct = await queryOne(
+      'SELECT * FROM products WHERE store_id = $1 AND LOWER(title) = LOWER($2)',
+      [storeId, title.trim()]
+    );
+    if (existingProduct) {
+      console.log(`Product "${title}" already exists in store ${storeId}, returning existing`);
+      return existingProduct;
     }
 
     // Create product first (always succeeds regardless of image gen)

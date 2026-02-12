@@ -14,6 +14,7 @@ const feedRoutes = require('./feed');
 const searchRoutes = require('./search');
 const commerceRoutes = require('./commerce');
 const operatorRoutes = require('./operator');
+const statsRoutes = require('./stats');
 
 const router = Router();
 
@@ -89,5 +90,8 @@ router.use('/search', searchRoutes);
 
 // Mount commerce routes
 router.use('/commerce', commerceRoutes);
+
+// Mount stats routes (public)
+router.use('/stats', statsRoutes);
 
 module.exports = router;

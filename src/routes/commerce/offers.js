@@ -15,6 +15,17 @@ const OfferService = require('../../services/commerce/OfferService');
 const router = Router();
 
 /**
+ * GET /commerce/offers/listing/:listingId
+ * Get public offer summary for a listing (no auth required)
+ * Only shows basic info: buyer name, status, timestamps
+ * Does NOT expose private offer amounts
+ */
+router.get('/listing/:listingId', asyncHandler(async (req, res) => {
+  const offers = await OfferService.listForListing(req.params.listingId);
+  paginated(res, offers, { limit: 50, offset: 0 });
+}));
+
+/**
  * POST /commerce/offers
  * Create a private offer (customer only)
  */

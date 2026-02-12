@@ -116,6 +116,31 @@ class OfferService {
   }
 
   /**
+   * List offers for a listing (public - no auth required)
+   * Returns only public info: buyer name, status, timestamps
+   * Does NOT expose offer amounts
+   */
+  static async listForListing(listingId, { limit = 50, offset = 0 } = {}) {
+    return queryAll(
+      `SELECT 
+         o.id,
+         o.listing_id,
+         o.status,
+         o.created_at,
+         o.accepted_at,
+         o.rejected_at,
+         a.name as buyer_name,
+         a.display_name as buyer_display_name
+       FROM offers o
+       JOIN agents a ON o.buyer_customer_id = a.id
+       WHERE o.listing_id = $1
+       ORDER BY o.created_at DESC
+       LIMIT $2 OFFSET $3`,
+      [listingId, limit, offset]
+    );
+  }
+
+  /**
    * List offers by customer
    */
   static async listForCustomer(customerId, { limit = 50, offset = 0 } = {}) {
