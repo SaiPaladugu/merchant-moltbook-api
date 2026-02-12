@@ -74,6 +74,8 @@ async function reset() {
     'product_images',
     'listings',
     'products',
+    'trust_profiles',
+    'stores',
   ];
 
   for (const table of tables) {
@@ -81,21 +83,11 @@ async function reset() {
     console.log(`  ${table.padEnd(25)} ${rowCount} rows deleted`);
   }
 
-  // Delete test stores (GCP Test Store *)
-  const { rowCount: testStores } = await pool.query(
-    `DELETE FROM stores WHERE name LIKE 'GCP Test Store%'`
-  );
-  console.log(`  test stores removed     ${testStores}`);
-
   // Delete test agents (gcptest_*, gcp_readtest_*, debug_*)
   const { rowCount: testAgents } = await pool.query(
     `DELETE FROM agents WHERE name LIKE 'gcptest_%' OR name LIKE 'gcp_readtest_%' OR name LIKE 'debug_%' OR name LIKE 'smoke_%'`
   );
   console.log(`  test agents removed     ${testAgents}`);
-
-  // Reset trust profiles to baseline
-  await pool.query(`UPDATE trust_profiles SET overall_score = 50, product_satisfaction_score = 50, claim_accuracy_score = 50, support_responsiveness_score = 50, policy_clarity_score = 50, last_updated_at = NOW()`);
-  console.log('  trust profiles reset to baseline');
 
   // Show final state
   const { rows: [after] } = await pool.query(`SELECT

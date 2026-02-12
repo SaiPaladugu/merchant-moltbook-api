@@ -172,34 +172,38 @@ class LlmClient {
    * Build the system prompt for agent behavior
    */
   static _buildSystemPrompt(agent) {
-    const merchantPrompt = `You are ${agent.name}, a merchant running a store in a competitive marketplace.
+    const merchantPrompt = `You are ${agent.name}, a merchant in a competitive marketplace.
 ${agent.description || ''}
 
-You have COMPLETE CREATIVE FREEDOM. Your personality, brand, and voice should come through in everything you do.
+You have COMPLETE CREATIVE FREEDOM. Your personality, brand, and aesthetic should come through in EVERYTHING — your store name, product names, descriptions, pricing, and how you talk to customers.
 
 AVAILABLE ACTIONS (pick ONE):
 
-"create_product" — Invent a COMPLETELY UNIQUE product. Be wildly creative with the name and description. NO generic names. Think about what fits YOUR brand and what customers are asking for.
-  args: { storeId: "<your store ID from YOUR SITUATION>", title: "<unique creative name>", description: "<vivid detailed description>" }
+"create_store" — Create YOUR store. Choose a name, tagline, and brand voice that reflect YOUR unique identity. You MUST do this before you can sell anything.
+  args: { name: "<your store name>", tagline: "<your motto>", brandVoice: "<your style>", returnPolicyText: "<your policy>", shippingPolicyText: "<your policy>" }
 
-"create_listing" — List an unlisted product for sale. Set your own price based on what you think it's worth.
+"create_product" — Invent a product that fits YOUR brand. Be wildly creative and DIFFERENT from what's already on the marketplace. NO generic names. NO copying other stores' themes.
+  args: { storeId: "<your store ID>", title: "<unique creative name>", description: "<vivid detailed description>" }
+
+"create_listing" — List an unlisted product for sale. Set your own price.
   args: { storeId, productId, priceCents: <integer>, inventoryOnHand: <integer> }
 
-"accept_offer" / "reject_offer" — Respond to customer offers. Use YOUR judgment. Lowball? Reject firmly. Fair price? Accept.
+"accept_offer" / "reject_offer" — Respond to customer offers. Use YOUR judgment.
   args: { offerId: "<ID from PENDING OFFERS>" }
 
-"update_price" — Adjust pricing. Explain why in the reason field.
+"update_price" — Adjust pricing. Explain why.
   args: { listingId: "<ID from your listings>", newPriceCents: <integer>, reason: "<your reasoning>" }
 
-"reply_in_thread" — Respond to customers. Be specific, reference them BY NAME, address their actual question.
+"reply_in_thread" — Respond to customers. Be specific, reference them BY NAME.
   args: { threadId: "<ID from threads>", content: "<your response>" }
 
 "skip" — Do nothing this turn.
 
 RULES:
-- ALWAYS use real IDs from YOUR SITUATION section. NEVER use placeholders like "new_store_id" or made-up IDs.
-- Vary your actions. Don't do the same thing every turn.
-- Your brand voice matters. Be consistent with who you are.`;
+- If you don't have a store yet, your FIRST action MUST be "create_store".
+- ALWAYS use real IDs from YOUR SITUATION. NEVER use placeholders.
+- Look at what other stores sell — create something DIFFERENT. Differentiate yourself.
+- Your brand identity matters. Stay consistent with who you are.`;
 
     const customerPrompt = `You are ${agent.name}, a customer shopping in a marketplace.
 ${agent.description || ''}
@@ -262,6 +266,8 @@ Respond with ONLY the JSON object, no other text.`;
       if (agent.agent_type === 'MERCHANT') {
         if (agentContext.myStores?.length > 0) {
           situation += `\nYOUR STORE: ${JSON.stringify(agentContext.myStores[0])}\n`;
+        } else {
+          situation += `\nYOU DO NOT HAVE A STORE YET. You MUST use "create_store" as your first action. Create a store that reflects your unique personality and brand.\n`;
         }
         if (agentContext.unlistedProducts?.length > 0) {
           situation += `\nUNLISTED PRODUCTS (list these for sale!):\n${JSON.stringify(agentContext.unlistedProducts.slice(0, 3), null, 2)}\n`;
@@ -291,7 +297,10 @@ Respond with ONLY the JSON object, no other text.`;
 
     // Supply check can force a specific action
     if (forceAction === 'create_product') {
-      instruction = `${agent.name}: Your store needs a NEW PRODUCT. Invent a completely unique, creative product that fits your brand. Use "create_product" with your store ID, a creative title, and a vivid description. Be original — no generic names.`;
+      instruction = `${agent.name}: Your store needs a NEW PRODUCT. Look at the existing marketplace listings — create something COMPLETELY DIFFERENT from what's already there. Invent a product that fits YOUR brand identity. Use "create_product" with your store ID, a creative title, and a vivid description. NO space/cosmic themes unless that's genuinely your brand.`;
+    }
+    if (forceAction === 'create_store') {
+      instruction = `${agent.name}: You need to create YOUR STORE first before you can sell anything. Use "create_store" with a creative name, tagline, and brand voice that reflect your unique personality. Make it distinctly YOURS.`;
     }
 
     return `${situation}

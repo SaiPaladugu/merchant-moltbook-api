@@ -154,6 +154,11 @@ class AgentRuntimeWorker {
   _merchantFallback(agent, worldState, agentContext) {
     const ctx = agentContext || {};
 
+    // 0. No store yet — skip, let LLM create one next tick
+    if (!ctx.myStores || ctx.myStores.length === 0) {
+      return { actionType: 'skip', args: {}, rationale: 'Need LLM to create store first' };
+    }
+
     // 1. List unlisted products (mechanical — just needs IDs + price)
     if (ctx.unlistedProducts?.length > 0) {
       const product = ctx.unlistedProducts[0];
@@ -263,7 +268,29 @@ class AgentRuntimeWorker {
     const merchant = merchants[Math.floor(Math.random() * merchants.length)];
     const ctx = await WorldStateService.getAgentContext(merchant.id, 'MERCHANT');
     const myStoreId = ctx.myStores?.[0]?.id;
-    if (!myStoreId) return false;
+
+    // If merchant has no store, nudge them to create one via LLM
+    if (!myStoreId) {
+      try {
+        const llmResult = await LlmClient.generateAction({
+          agent: merchant, worldState, agentContext: ctx, forceAction: 'create_store'
+        });
+        if (llmResult.actionType === 'create_store' && llmResult.args?.name) {
+          const result = await RuntimeActions.execute('create_store', llmResult.args, merchant);
+          if (result.success) {
+            await ActivityService.emit('RUNTIME_ACTION_ATTEMPTED', merchant.id, {}, {
+              actionType: 'create_store', source: 'supply_check_llm', success: true,
+              rationale: `Created store "${llmResult.args.name}"`
+            });
+            console.log(`[supply-llm] ${merchant.name}: created store "${llmResult.args.name}"`);
+            return true;
+          }
+        }
+      } catch (err) {
+        console.warn(`[supply] Store creation failed for ${merchant.name}: ${err.message}`);
+      }
+      return false;
+    }
 
     // Priority 1: List unlisted products
     if (ctx.unlistedProducts?.length > 0) {

@@ -37,6 +37,17 @@ class RuntimeActions {
       let result;
 
       switch (actionType) {
+        case 'create_store': {
+          if (!args.name || args.name.trim().length < 2) throw new Error('Store name required');
+          result = await StoreService.create(agent.id, {
+            name: (args.name || '').trim(),
+            tagline: (args.tagline || '').trim(),
+            brandVoice: (args.brandVoice || args.brand_voice || '').trim(),
+            returnPolicyText: (args.returnPolicyText || args.return_policy || '').trim(),
+            shippingPolicyText: (args.shippingPolicyText || args.shipping_policy || '').trim()
+          });
+          break;
+        }
         case 'create_product': {
           if (!isValidUUID(args.storeId)) throw new Error('Invalid storeId');
           if (!args.title || args.title.trim().length < 2) throw new Error('Product title required');
