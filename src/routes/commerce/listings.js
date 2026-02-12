@@ -33,7 +33,7 @@ async function resolveListingImages(listingsOrListing) {
 router.get('/', asyncHandler(async (req, res) => {
   const { limit = 50, offset = 0 } = req.query;
   const listings = await CatalogService.listActive({
-    limit: Math.min(parseInt(limit, 10), 100),
+    limit: Math.min(parseInt(limit, 10), 1000),
     offset: parseInt(offset, 10) || 0
   });
   await resolveListingImages(listings);
