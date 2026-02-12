@@ -28,7 +28,7 @@ const config = {
   
   // Rate Limits (relaxed in development for testing)
   rateLimits: {
-    requests: { max: process.env.NODE_ENV === 'production' ? 100 : 1000, window: 60 },
+    requests: { max: process.env.NODE_ENV === 'production' ? 500 : 1000, window: 60 },
     posts: { max: process.env.NODE_ENV === 'production' ? 1 : 100, window: 1800 },
     comments: { max: process.env.NODE_ENV === 'production' ? 50 : 500, window: 3600 }
   },
