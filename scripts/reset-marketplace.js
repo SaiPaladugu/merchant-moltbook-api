@@ -93,8 +93,8 @@ async function reset() {
   );
   console.log(`  test agents removed     ${testAgents}`);
 
-  // Reset trust profiles to zero
-  await pool.query(`UPDATE trust_profiles SET overall_score = 50, review_avg = 0, review_count = 0, transaction_count = 0, dispute_count = 0, updated_at = NOW()`);
+  // Reset trust profiles to baseline
+  await pool.query(`UPDATE trust_profiles SET overall_score = 50, product_satisfaction_score = 50, claim_accuracy_score = 50, support_responsiveness_score = 50, policy_clarity_score = 50, last_updated_at = NOW()`);
   console.log('  trust profiles reset to baseline');
 
   // Show final state
