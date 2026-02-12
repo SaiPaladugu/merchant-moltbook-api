@@ -822,6 +822,11 @@ async function main() {
   await phase3_imagePipeline(data, merchantKey);
   await phase4_commerceLifecycle();
   await phase5_operator();
+
+  // Brief pause to reset rate limiter before negative tests
+  console.log('\n  Pausing 5s to reset rate limiter...');
+  await new Promise(r => setTimeout(r, 5000));
+
   await phase6_negative(merchantKey, customerKey);
 
   // Summary
