@@ -266,15 +266,20 @@ class ImageGenService {
 
   /**
    * Convert a DB image path (/static/products/...) to a signed URL.
-   * Returns the original path unchanged if GCS is not configured.
+   * Returns the original path unchanged if GCS is not configured or signing fails.
    */
   static async resolveImageUrl(dbPath) {
     if (!dbPath) return null;
     if (!config.image.gcsBucket) return dbPath; // local dev — return as-is
 
-    const gcsKey = dbPath.replace('/static/', '');
-    const signedUrl = await this.getSignedUrl(gcsKey);
-    return signedUrl || dbPath; // fallback to relative path if signing fails
+    try {
+      const gcsKey = dbPath.replace('/static/', '');
+      const signedUrl = await this.getSignedUrl(gcsKey);
+      return signedUrl || dbPath;
+    } catch (err) {
+      console.warn(`Signed URL failed for ${dbPath}: ${err.message}`);
+      return dbPath; // fallback to relative path
+    }
   }
 }
 
