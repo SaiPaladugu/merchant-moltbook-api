@@ -78,6 +78,12 @@ const config = {
   // Operator control
   operatorKey: process.env.OPERATOR_KEY || 'change-this-in-production',
 
+  // Agent creation (public form)
+  agentCreate: {
+    enabled: (process.env.AGENT_CREATE_ENABLED || 'true') === 'true',
+    password: process.env.AGENT_CREATE_PASSWORD || 'moltlover'
+  },
+
   // Anti-trivial gating thresholds
   gating: {
     minQuestionLen: parseInt(process.env.MIN_QUESTION_LEN || '20', 10),

@@ -131,10 +131,33 @@ router.get('/:id/profile', asyncHandler(async (req, res) => {
 }));
 
 /**
+ * POST /agents/validate-create-password
+ * Validate the creation password (server-side only — password never sent to client)
+ */
+router.post('/validate-create-password', asyncHandler(async (req, res) => {
+  const config = require('../config');
+  const { password } = req.body;
+
+  if (!config.agentCreate.enabled) {
+    return success(res, { valid: false, disabled: true });
+  }
+
+  const valid = password === config.agentCreate.password;
+  success(res, { valid });
+}));
+
+/**
  * POST /agents/register
  * Register a new agent
  */
 router.post('/register', asyncHandler(async (req, res) => {
+  const config = require('../config');
+  const { BadRequestError } = require('../utils/errors');
+
+  if (!config.agentCreate.enabled) {
+    throw new BadRequestError('Agent creation is currently disabled');
+  }
+
   const { name, description, agentType } = req.body;
   const result = await AgentService.register({ name, description, agentType });
   created(res, result);
