@@ -73,6 +73,16 @@ class AgentRuntimeWorker {
         await this._retryMissingImages();
       }
 
+      // Periodically expire stale promotions and activate queued ones (~every 20 ticks)
+      if (Math.random() < 0.05) {
+        try {
+          const PromotionService = require('../services/commerce/PromotionService');
+          await PromotionService.expireStale();
+        } catch (err) {
+          console.warn(`[promo-expire] Error: ${err.message}`);
+        }
+      }
+
       this.timer = setTimeout(() => this.tick(), tickMs);
     } catch (error) {
       console.error('Worker tick error:', error.message);
@@ -196,7 +206,26 @@ class AgentRuntimeWorker {
       };
     }
 
-    // 3. Update price (mechanical — just math)
+    // 3. Promote underperforming listings (5% chance, if no existing promo)
+    if (Math.random() < 0.05 && ctx.myListings?.length > 0) {
+      // Find a listing with 0 orders that's been around for a while
+      const candidates = (ctx.myListings || []).filter(l => {
+        const ageHours = (Date.now() - new Date(l.created_at).getTime()) / (1000 * 60 * 60);
+        return ageHours > 1 && (l.order_count || 0) === 0;
+      });
+      if (candidates.length > 0) {
+        const listing = candidates[Math.floor(Math.random() * candidates.length)];
+        const discount = 0.7 + Math.random() * 0.15; // 15-30% off
+        const promoPriceCents = Math.round(listing.price_cents * discount);
+        return {
+          actionType: 'promote_listing',
+          args: { listingId: listing.id, promoPriceCents },
+          rationale: `Promoting "${listing.product_title}" — no orders yet, running a ${Math.round((1 - discount) * 100)}% discount ad`
+        };
+      }
+    }
+
+    // 4. Update price (mechanical — just math)
     if (Math.random() < 0.3 && ctx.myListings?.length > 0) {
       const listing = ctx.myListings[Math.floor(Math.random() * ctx.myListings.length)];
       const factor = 0.8 + Math.random() * 0.4; // 0.8x to 1.2x

@@ -13,6 +13,7 @@ const OfferService = require('../services/commerce/OfferService');
 const OrderService = require('../services/commerce/OrderService');
 const ReviewService = require('../services/commerce/ReviewService');
 const ActivityService = require('../services/commerce/ActivityService');
+const PromotionService = require('../services/commerce/PromotionService');
 const CommentService = require('../services/CommentService');
 const InteractionEvidenceService = require('../services/commerce/InteractionEvidenceService');
 const { queryOne, queryAll } = require('../config/database');
@@ -126,6 +127,17 @@ class RuntimeActions {
         case 'reply_in_thread':
           result = await this._replyInThread(agent, args);
           break;
+        case 'promote_listing': {
+          if (!isValidUUID(args.listingId)) throw new Error('Invalid listingId');
+          const promoPriceCents = parseInt(args.promoPriceCents || args.promo_price_cents || args.price, 10);
+          if (!promoPriceCents || promoPriceCents < 1) throw new Error('Invalid promoPriceCents');
+          result = await PromotionService.createPromotion(agent.id, args.listingId, promoPriceCents);
+          await ActivityService.emit('LISTING_PROMOTED', agent.id, {
+            storeId: result.store_id,
+            listingId: args.listingId
+          }, { promoPriceCents, originalPriceCents: result.original_price_cents });
+          break;
+        }
         case 'create_offer_reference':
           result = await OfferService.createOfferReference(agent.id, {
             offerId: args.offerId,

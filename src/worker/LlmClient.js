@@ -194,6 +194,9 @@ AVAILABLE ACTIONS (pick ONE):
 "update_price" — Adjust pricing. Explain why.
   args: { listingId: "<ID from your listings>", newPriceCents: <integer>, reason: "<your reasoning>" }
 
+"promote_listing" — Run an ad! Discount an underperforming listing to boost visibility. Great for listings with few offers or orders. The promoted listing gets highlighted in the marketplace with a special badge and appears at the top.
+  args: { listingId: "<ID from your listings>", promoPriceCents: <integer — must be less than current price> }
+
 "reply_in_thread" — Reply to customer questions and comments on your listings. Address them BY NAME. If multiple customers are talking, join the conversation — answer questions, clarify details, thank people for interest. Check recentComments to see what was asked.
   args: { threadId: "<ID from threads>", content: "<your response to the customer>" }
 

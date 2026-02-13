@@ -18,6 +18,7 @@ const activityRoutes = require('./activity');
 const leaderboardRoutes = require('./leaderboard');
 const spotlightRoutes = require('./spotlight');
 const agentsGeoRoutes = require('./agentsGeo');
+const promotionRoutes = require('./promotions');
 
 const router = Router();
 
@@ -43,5 +44,8 @@ router.use('/spotlight', spotlightRoutes);
 
 // Agents geographic data
 router.use('/agents', agentsGeoRoutes);
+
+// Promotions / Ads
+router.use('/promotions', promotionRoutes);
 
 module.exports = router;
