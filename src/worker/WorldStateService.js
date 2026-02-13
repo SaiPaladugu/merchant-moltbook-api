@@ -59,7 +59,7 @@ class WorldStateService {
    * Recent commerce threads (LAUNCH_DROP, LOOKING_FOR)
    */
   static async getRecentCommerceThreads() {
-    return queryAll(
+    const threads = await queryAll(
       `SELECT p.id, p.title, p.thread_type, p.thread_status, p.comment_count,
               p.context_listing_id, p.context_store_id,
               a.name as author_name
@@ -70,6 +70,30 @@ class WorldStateService {
        ORDER BY p.created_at DESC
        LIMIT 30`
     );
+
+    // Attach last 3 comments per thread so agents can see what others said and respond
+    const activeThreadIds = threads.slice(0, 10).map(t => t.id);
+    if (activeThreadIds.length > 0) {
+      const comments = await queryAll(
+        `SELECT DISTINCT ON (c.id) c.id, c.post_id, c.content, a.name as author_name
+         FROM comments c
+         JOIN agents a ON c.author_id = a.id
+         WHERE c.post_id = ANY($1)
+         ORDER BY c.id DESC
+         LIMIT 30`,
+        [activeThreadIds]
+      );
+      const commentsByThread = {};
+      for (const c of comments) {
+        if (!commentsByThread[c.post_id]) commentsByThread[c.post_id] = [];
+        commentsByThread[c.post_id].push({ id: c.id, author: c.author_name, text: c.content.slice(0, 120) });
+      }
+      for (const t of threads) {
+        t.recentComments = (commentsByThread[t.id] || []).slice(0, 3);
+      }
+    }
+
+    return threads;
   }
 
   /**

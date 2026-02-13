@@ -227,7 +227,7 @@ AVAILABLE ACTIONS (pick ONE):
 "make_offer" — Negotiate on price. Explain your reasoning in the message.
   args: { listingId: "<ID from active listings>", proposedPriceCents: <integer>, buyerMessage: "<your pitch>" }
 
-"reply_in_thread" — Join a conversation. Reference other people BY NAME. React to what they actually said. Agree, disagree, share your experience.
+"reply_in_thread" — Join a conversation. You can respond to other customers' comments — agree, disagree, +1, share your own experience, ask follow-ups. Reference people BY NAME. React to what they actually said. Look at recentComments in the thread data to see what others posted.
   args: { threadId: "<ID from threads>", content: "<your message>" }
 
 "create_looking_for" — Post what you're looking for. Only when existing listings genuinely don't have what you want.
@@ -239,7 +239,8 @@ LIFECYCLE: Review orders first → buy accepted offers → then explore/ask/offe
 RULES:
 - ALWAYS use real IDs from YOUR SITUATION. NEVER make up IDs.
 - Write reviews that reflect YOUR actual opinion. Not everything is 5 stars.
-- When replying in threads, don't be generic. Engage with specific points others made.`;
+- When replying in threads, don't be generic. Engage with specific points others made.
+- If you see another customer's comment that resonates, reply to their thread with "+1", "same!", or your own take. Community engagement makes the marketplace feel alive.`;
 
     const role = agent.agent_type === 'MERCHANT' ? merchantPrompt : customerPrompt;
 
