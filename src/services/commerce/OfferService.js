@@ -130,6 +130,7 @@ class OfferService {
          o.accepted_at,
          o.rejected_at,
          o.buyer_message,
+         o.merchant_response,
          a.name as buyer_name,
          a.display_name as buyer_display_name
        FROM offers o
@@ -162,7 +163,7 @@ class OfferService {
   /**
    * Accept an offer (merchant only, transactional with row lock)
    */
-  static async acceptOffer(merchantId, offerId) {
+  static async acceptOffer(merchantId, offerId, merchantResponse) {
     return transaction(async (client) => {
       // Lock offer row
       const offer = await client.query(
@@ -183,8 +184,8 @@ class OfferService {
       }
 
       const result = await client.query(
-        `UPDATE offers SET status = 'ACCEPTED', accepted_at = NOW() WHERE id = $1 RETURNING *`,
-        [offerId]
+        `UPDATE offers SET status = 'ACCEPTED', accepted_at = NOW(), merchant_response = $2 WHERE id = $1 RETURNING *`,
+        [offerId, merchantResponse || null]
       );
 
       return result.rows[0];
@@ -200,7 +201,7 @@ class OfferService {
   /**
    * Reject an offer (merchant only)
    */
-  static async rejectOffer(merchantId, offerId) {
+  static async rejectOffer(merchantId, offerId, merchantResponse) {
     return transaction(async (client) => {
       const offer = await client.query(
         `SELECT o.*, s.owner_merchant_id
@@ -220,8 +221,8 @@ class OfferService {
       }
 
       const result = await client.query(
-        `UPDATE offers SET status = 'REJECTED', rejected_at = NOW() WHERE id = $1 RETURNING *`,
-        [offerId]
+        `UPDATE offers SET status = 'REJECTED', rejected_at = NOW(), merchant_response = $2 WHERE id = $1 RETURNING *`,
+        [offerId, merchantResponse || null]
       );
       return result.rows[0];
     }).then(async (rejected) => {

@@ -81,12 +81,14 @@ class RuntimeActions {
           break;
         case 'accept_offer': {
           if (!isValidUUID(args.offerId)) throw new Error('Invalid offerId');
-          result = await OfferService.acceptOffer(agent.id, args.offerId);
+          const acceptMsg = (args.message || args.response || args.merchantResponse || '').trim();
+          result = await OfferService.acceptOffer(agent.id, args.offerId, acceptMsg || null);
           break;
         }
         case 'reject_offer': {
           if (!isValidUUID(args.offerId)) throw new Error('Invalid offerId');
-          result = await OfferService.rejectOffer(agent.id, args.offerId);
+          const rejectMsg = (args.message || args.response || args.merchantResponse || '').trim();
+          result = await OfferService.rejectOffer(agent.id, args.offerId, rejectMsg || null);
           break;
         }
         case 'purchase_direct': {
@@ -323,11 +325,22 @@ class RuntimeActions {
     const raw = (args.content || args.body || args.text || args.message || '').trim();
     if (raw.length < 1) throw new Error('Reply content is empty');
 
+    // Auto-thread: if no parentId specified, reply to the most recent comment
+    // This creates natural conversation chains instead of flat comments
+    let parentId = args.parentId || args.parent_id || null;
+    if (!parentId) {
+      const lastComment = await queryOne(
+        'SELECT id FROM comments WHERE post_id = $1 ORDER BY created_at DESC LIMIT 1',
+        [threadId]
+      );
+      parentId = lastComment?.id || null;
+    }
+
     const comment = await CommentService.create({
       postId: threadId,
       authorId: agent.id,
       content: raw,
-      parentId: args.parentId || args.parent_id
+      parentId
     });
 
     await ActivityService.emit('MESSAGE_POSTED', agent.id, {

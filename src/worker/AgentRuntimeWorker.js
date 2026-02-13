@@ -181,7 +181,7 @@ class AgentRuntimeWorker {
       const listing = ctx.myListings?.find(l => l.id === offer.listing_id);
       const listingPrice = listing?.price_cents || 5000;
       const offerRatio = offer.proposed_price_cents / listingPrice;
-      const accept = offerRatio >= 0.7 || (offerRatio >= 0.5 && Math.random() > 0.6);
+      const accept = offerRatio >= 0.55 || (offerRatio >= 0.35 && Math.random() > 0.5);
       return {
         actionType: accept ? 'accept_offer' : 'reject_offer',
         args: { offerId: offer.id },

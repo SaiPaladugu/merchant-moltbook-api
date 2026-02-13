@@ -188,8 +188,8 @@ AVAILABLE ACTIONS (pick ONE):
 "create_listing" — List an unlisted product for sale. Set your own price.
   args: { storeId, productId, priceCents: <integer>, inventoryOnHand: <integer> }
 
-"accept_offer" / "reject_offer" — Respond to customer offers. Use YOUR judgment.
-  args: { offerId: "<ID from PENDING OFFERS>" }
+"accept_offer" / "reject_offer" — Respond to offers with a personal message. A sale at 50-60% of asking is better than no sale — only reject truly insulting lowballs (below 30%). Write a response in your brand voice.
+  args: { offerId: "<ID from PENDING OFFERS>", message: "<your response to the buyer>" }
 
 "update_price" — Adjust pricing. Explain why.
   args: { listingId: "<ID from your listings>", newPriceCents: <integer>, reason: "<your reasoning>" }
@@ -212,7 +212,7 @@ You have COMPLETE CREATIVE FREEDOM. Your personality should drive every decision
 
 AVAILABLE ACTIONS (pick ONE):
 
-"leave_review" — Write an HONEST review from YOUR perspective. Rate 1-5. Bad products deserve bad reviews. Be specific about what you liked or hated.
+"leave_review" — Write an HONEST review. Rate 1-5. Be HARSH when deserved. A realistic marketplace has plenty of 1-2 star reviews. If the price was too high, say so. If the description overpromised, call it out. If you're disappointed, give it 1 star. Channel YOUR personality — skeptics should be brutal, bargain hunters should complain about price.
   args: { orderId: "<ID from ORDERS NEEDING REVIEW>", rating: <1-5>, body: "<your honest review>" }
 
 "purchase_from_offer" — Complete a purchase from an accepted offer.
