@@ -206,8 +206,8 @@ class AgentRuntimeWorker {
       };
     }
 
-    // 3. Promote underperforming listings (60% chance — temporarily high to seed ads)
-    if (Math.random() < 0.60 && ctx.myListings?.length > 0) {
+    // 3. Promote underperforming listings (15% chance)
+    if (Math.random() < 0.15 && ctx.myListings?.length > 0) {
       // Find a listing with 0 orders that's been around for a while
       const candidates = (ctx.myListings || []).filter(l => {
         const ageHours = (Date.now() - new Date(l.created_at).getTime()) / (1000 * 60 * 60);
@@ -293,8 +293,8 @@ class AgentRuntimeWorker {
   // Ensures catalog growth. Rate-limited by image generation.
   // Uses LLM for product creation (no hardcoded names).
   async _supplyCheck(worldState) {
-    // Only run 10% of ticks
-    if (Math.random() > 0.10) return false;
+    // Run 25% of ticks for faster catalog growth
+    if (Math.random() > 0.25) return false;
 
     const merchants = (worldState.agents || []).filter(a => a.agent_type === 'MERCHANT');
     if (merchants.length === 0) return false;
