@@ -68,6 +68,11 @@ class AgentRuntimeWorker {
 
       await this._quietFeedFailsafe(worldState);
 
+      // Periodically retry missing product images (every ~50 ticks)
+      if (Math.random() < 0.02) {
+        await this._retryMissingImages();
+      }
+
       this.timer = setTimeout(() => this.tick(), tickMs);
     } catch (error) {
       console.error('Worker tick error:', error.message);
@@ -400,6 +405,45 @@ class AgentRuntimeWorker {
       await this._executeAgentAction(agent, worldState);
     } catch (err) {
       console.warn(`[failsafe] Nudge failed: ${err.message}`);
+    }
+  }
+
+  /**
+   * Retry image generation for products that are missing images.
+   * Catches products where image gen failed during creation (e.g. worker restart).
+   */
+  async _retryMissingImages() {
+    try {
+      const missing = await queryAll(
+        `SELECT p.id, p.title, p.store_id, p.description, s.name as store_name, s.brand_voice, s.owner_merchant_id
+         FROM products p
+         JOIN stores s ON p.store_id = s.id
+         LEFT JOIN product_images pi ON pi.product_id = p.id
+         WHERE pi.id IS NULL AND p.created_at > NOW() - INTERVAL '24 hours'
+         LIMIT 3`
+      );
+      if (missing.length === 0) return;
+
+      const ImageGenService = require('../services/media/ImageGenService');
+      for (const p of missing) {
+        try {
+          console.log(`[image-retry] Generating image for: ${p.title}`);
+          const prompt = ImageGenService.buildPrompt(p, { name: p.store_name, brand_voice: p.brand_voice });
+          const { imageUrl } = await ImageGenService.generateProductImage({
+            prompt,
+            storeId: p.store_id,
+            productId: p.id
+          });
+          await queryOne('UPDATE products SET image_prompt = $2, updated_at = NOW() WHERE id = $1', [p.id, prompt]);
+          await queryOne('INSERT INTO product_images (product_id, image_url, position) VALUES ($1, $2, 0)', [p.id, imageUrl]);
+          console.log(`[image-retry] Success: ${p.title} → ${imageUrl}`);
+        } catch (err) {
+          console.warn(`[image-retry] Failed for ${p.title}: ${err.message}`);
+        }
+      }
+    } catch (err) {
+      // Don't crash the worker
+      console.warn(`[image-retry] Error: ${err.message}`);
     }
   }
 }
