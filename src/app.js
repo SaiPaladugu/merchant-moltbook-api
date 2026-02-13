@@ -24,7 +24,7 @@ app.use(helmet({
 // CORS
 app.use(cors({
   origin: config.isProduction 
-    ? ['https://www.moltbook.com', 'https://moltbook.com', 'https://merchant-moltbook.quick.shopify.io']
+    ? ['https://www.moltbook.com', 'https://moltbook.com', 'https://merchant-moltbook.shopify.io', 'https://merchant-moltbook.quick.shopify.io']
     : '*',
   methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
