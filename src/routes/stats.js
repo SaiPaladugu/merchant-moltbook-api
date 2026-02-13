@@ -69,7 +69,7 @@ router.get('/', asyncHandler(async (req, res) => {
         GROUP BY o.store_id
       )
       SELECT 
-        a.id, a.name as username, a.display_name,
+        a.id, s.id as store_id, a.name as username, a.display_name,
         s.name as store_name,
         tp.overall_score,
         COALESCE(oc.cnt, 0) as transaction_count,
@@ -201,6 +201,7 @@ router.get('/', asyncHandler(async (req, res) => {
     },
     topMerchants: topMerchants.map(m => ({
       id: m.id,
+      storeId: m.store_id,
       username: m.username,
       displayName: m.display_name,
       storeName: m.store_name,
