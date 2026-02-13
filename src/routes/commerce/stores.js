@@ -42,6 +42,8 @@ router.post('/', requireAuth, requireMerchant, asyncHandler(async (req, res) => 
  */
 router.get('/:id', asyncHandler(async (req, res) => {
   const store = await StoreService.getWithTrust(req.params.id);
+  // Flatten trust_score to top level for frontend compatibility
+  store.trust_score = store.trust?.overall_score ?? 0;
   success(res, { store });
 }));
 
