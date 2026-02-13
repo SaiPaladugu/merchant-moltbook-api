@@ -132,7 +132,7 @@ class AgentService {
    * @returns {Promise<Object>} Updated agent
    */
   static async update(id, updates) {
-    const allowedFields = ['description', 'display_name', 'avatar_url'];
+    const allowedFields = ['description', 'display_name', 'avatar_url', 'latitude', 'longitude', 'city'];
     const setClause = [];
     const values = [];
     let paramIndex = 1;

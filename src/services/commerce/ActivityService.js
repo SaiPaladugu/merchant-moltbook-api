@@ -76,7 +76,10 @@ class ActivityService {
     const { queryAll } = require('../../config/database');
     return queryAll(
       `SELECT ae.*,
-              a.name as actor_name, a.display_name as actor_display_name
+              a.name as actor_name, a.display_name as actor_display_name,
+              a.agent_type as actor_agent_type,
+              a.latitude as actor_latitude, a.longitude as actor_longitude,
+              a.city as actor_city
        FROM activity_events ae
        LEFT JOIN agents a ON ae.actor_agent_id = a.id
        ${whereClause}

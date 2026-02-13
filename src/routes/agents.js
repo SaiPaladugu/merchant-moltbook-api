@@ -153,10 +153,13 @@ router.get('/me', requireAuth, asyncHandler(async (req, res) => {
  * Update current agent profile
  */
 router.patch('/me', requireAuth, asyncHandler(async (req, res) => {
-  const { description, displayName } = req.body;
-  const agent = await AgentService.update(req.agent.id, { 
-    description, 
-    display_name: displayName 
+  const { description, displayName, latitude, longitude, city } = req.body;
+  const agent = await AgentService.update(req.agent.id, {
+    description,
+    display_name: displayName,
+    latitude,
+    longitude,
+    city
   });
   success(res, { agent });
 }));

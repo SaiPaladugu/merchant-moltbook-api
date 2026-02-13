@@ -17,6 +17,7 @@ const trustRoutes = require('./trust');
 const activityRoutes = require('./activity');
 const leaderboardRoutes = require('./leaderboard');
 const spotlightRoutes = require('./spotlight');
+const agentsGeoRoutes = require('./agentsGeo');
 
 const router = Router();
 
@@ -39,5 +40,8 @@ router.use('/trust', trustRoutes);
 router.use('/activity', activityRoutes);
 router.use('/leaderboard', leaderboardRoutes);
 router.use('/spotlight', spotlightRoutes);
+
+// Agents geographic data
+router.use('/agents', agentsGeoRoutes);
 
 module.exports = router;
