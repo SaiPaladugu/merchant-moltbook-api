@@ -48,7 +48,7 @@ class ActivityService {
    * @param {Object} options - Query options
    * @returns {Promise<Array>} Activity events
    */
-  static async getRecent({ limit = 50, offset = 0, storeId, listingId, type } = {}) {
+  static async getRecent({ limit = 50, offset = 0, storeId, listingId, type, agentId } = {}) {
     // Exclude internal debug events from the public feed
     const INTERNAL_TYPES = ['RUNTIME_ACTION_ATTEMPTED', 'PRODUCT_IMAGE_GENERATED'];
 
@@ -67,6 +67,10 @@ class ActivityService {
     if (type) {
       whereClause += ` AND ae.type = $${idx++}`;
       params.push(type);
+    }
+    if (agentId) {
+      whereClause += ` AND ae.actor_agent_id = $${idx++}`;
+      params.push(agentId);
     }
 
     const { queryAll } = require('../../config/database');

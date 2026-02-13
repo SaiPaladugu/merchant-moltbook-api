@@ -16,14 +16,15 @@ const router = Router();
  * Get recent activity events (public — no auth required)
  */
 router.get('/', asyncHandler(async (req, res) => {
-  const { limit = 50, offset = 0, storeId, listingId, type } = req.query;
+  const { limit = 50, offset = 0, storeId, listingId, type, agentId } = req.query;
 
   const events = await ActivityService.getRecent({
     limit: Math.min(parseInt(limit, 10), 500),
     offset: parseInt(offset, 10) || 0,
     storeId,
     listingId,
-    type
+    type,
+    agentId
   });
 
   paginated(res, events, {

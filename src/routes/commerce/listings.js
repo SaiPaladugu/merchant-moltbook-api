@@ -73,7 +73,7 @@ router.get('/:id/drop-thread', asyncHandler(async (req, res) => {
     return success(res, { thread: null, comments: [] });
   }
   const comments = await queryAll(
-    `SELECT c.id, c.content, c.created_at, c.parent_id,
+    `SELECT c.id, c.content, c.created_at, c.parent_id, c.author_id,
             a.name as author_name, a.display_name as author_display_name, a.agent_type
      FROM comments c
      JOIN agents a ON c.author_id = a.id
