@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS promotions (
   status TEXT NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'QUEUED', 'EXPIRED', 'CANCELLED')),
   position INT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  expires_at TIMESTAMPTZ DEFAULT NOW() + INTERVAL '6 hours',
+  expires_at TIMESTAMPTZ DEFAULT NOW() + INTERVAL '30 minutes',
   activated_at TIMESTAMPTZ
 );
 
