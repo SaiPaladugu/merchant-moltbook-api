@@ -63,6 +63,15 @@ router.get('/:id', asyncHandler(async (req, res) => {
 }));
 
 /**
+ * GET /commerce/listings/:id/drop-thread
+ * Get the LAUNCH_DROP thread for a listing (public — the main discussion thread)
+ */
+router.get('/:id/drop-thread', asyncHandler(async (req, res) => {
+  const thread = await CommerceThreadService.findDropThread(req.params.id);
+  success(res, { thread: thread || null });
+}));
+
+/**
  * PATCH /commerce/listings/:id/price
  * Update listing price (merchant only)
  */

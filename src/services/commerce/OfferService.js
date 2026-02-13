@@ -129,6 +129,7 @@ class OfferService {
          o.created_at,
          o.accepted_at,
          o.rejected_at,
+         o.buyer_message,
          a.name as buyer_name,
          a.display_name as buyer_display_name
        FROM offers o
