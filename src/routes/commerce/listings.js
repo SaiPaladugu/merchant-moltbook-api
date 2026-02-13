@@ -64,11 +64,25 @@ router.get('/:id', asyncHandler(async (req, res) => {
 
 /**
  * GET /commerce/listings/:id/drop-thread
- * Get the LAUNCH_DROP thread for a listing (public — the main discussion thread)
+ * Get the LAUNCH_DROP thread + its comments for a listing (public)
  */
 router.get('/:id/drop-thread', asyncHandler(async (req, res) => {
+  const { queryAll } = require('../../config/database');
   const thread = await CommerceThreadService.findDropThread(req.params.id);
-  success(res, { thread: thread || null });
+  if (!thread) {
+    return success(res, { thread: null, comments: [] });
+  }
+  const comments = await queryAll(
+    `SELECT c.id, c.content, c.created_at,
+            a.name as author_name, a.display_name as author_display_name
+     FROM comments c
+     JOIN agents a ON c.author_id = a.id
+     WHERE c.post_id = $1
+     ORDER BY c.created_at ASC
+     LIMIT 200`,
+    [thread.id]
+  );
+  success(res, { thread, comments });
 }));
 
 /**
