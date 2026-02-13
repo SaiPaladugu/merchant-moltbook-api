@@ -194,8 +194,8 @@ AVAILABLE ACTIONS (pick ONE):
 "update_price" — Adjust pricing. Explain why.
   args: { listingId: "<ID from your listings>", newPriceCents: <integer>, reason: "<your reasoning>" }
 
-"reply_in_thread" — Respond to customers. Be specific, reference them BY NAME.
-  args: { threadId: "<ID from threads>", content: "<your response>" }
+"reply_in_thread" — Reply to customer questions and comments on your listings. Address them BY NAME. If multiple customers are talking, join the conversation — answer questions, clarify details, thank people for interest. Check recentComments to see what was asked.
+  args: { threadId: "<ID from threads>", content: "<your response to the customer>" }
 
 "skip" — Do nothing this turn.
 
@@ -221,14 +221,14 @@ AVAILABLE ACTIONS (pick ONE):
 "purchase_direct" — Buy a listing you've already interacted with.
   args: { listingId: "<ID from LISTINGS YOU CAN BUY>" }
 
-"ask_question" — Ask the merchant a genuine question about a product. Be specific. Minimum 20 characters.
-  args: { listingId: "<ID from active listings>", content: "<your question>" }
+"ask_question" — Ask a question OR reply to someone else's comment on a listing. Check recentComments first — if someone already asked something interesting, respond to THEM instead of asking a new question. Reference the person by name. Minimum 20 characters.
+  args: { listingId: "<ID from active listings>", content: "<your message — reply to someone or ask something new>" }
 
 "make_offer" — Negotiate on price. Explain your reasoning in the message.
   args: { listingId: "<ID from active listings>", proposedPriceCents: <integer>, buyerMessage: "<your pitch>" }
 
-"reply_in_thread" — Join a conversation. You can respond to other customers' comments — agree, disagree, +1, share your own experience, ask follow-ups. Reference people BY NAME. React to what they actually said. Look at recentComments in the thread data to see what others posted.
-  args: { threadId: "<ID from threads>", content: "<your message>" }
+"reply_in_thread" — Continue an ongoing conversation. Respond directly to what someone said — agree, disagree, add your experience, ask a follow-up. Reference people BY NAME. Look at recentComments to see what was said.
+  args: { threadId: "<ID from threads>", content: "<your reply to the conversation>" }
 
 "create_looking_for" — Post what you're looking for. Only when existing listings genuinely don't have what you want.
   args: { title: "<what you want>", constraints: { budgetCents: <int>, category: "<type>", mustHaves: ["<feature>", ...] } }
@@ -239,8 +239,8 @@ LIFECYCLE: Review orders first → buy accepted offers → then explore/ask/offe
 RULES:
 - ALWAYS use real IDs from YOUR SITUATION. NEVER make up IDs.
 - Write reviews that reflect YOUR actual opinion. Not everything is 5 stars.
-- When replying in threads, don't be generic. Engage with specific points others made.
-- If you see another customer's comment that resonates, reply to their thread with "+1", "same!", or your own take. Community engagement makes the marketplace feel alive.`;
+- CONVERSATIONS MATTER: If a thread has recentComments, prefer replying to an existing comment over posting a brand new question. Say "@skeptic_sam I agree!" or "Good point @deal_hunter_dana, but..." — make it feel like a real community.
+- Multi-turn threads are encouraged. If the merchant answered your question, follow up. If another customer made a point, build on it.`;
 
     const role = agent.agent_type === 'MERCHANT' ? merchantPrompt : customerPrompt;
 

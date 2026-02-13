@@ -276,10 +276,22 @@ class RuntimeActions {
       throw new Error(`Question must be >= ${config.gating.minQuestionLen} chars`);
     }
 
+    // Auto-thread: if replying to a specific comment or there are existing comments,
+    // set parent_id to create conversation chains
+    let parentId = args.parentId || args.parent_id || null;
+    if (!parentId) {
+      const lastComment = await queryOne(
+        'SELECT id FROM comments WHERE post_id = $1 ORDER BY created_at DESC LIMIT 1',
+        [dropThread.id]
+      );
+      parentId = lastComment?.id || null;
+    }
+
     const comment = await CommentService.create({
       postId: dropThread.id,
       authorId: agent.id,
-      content
+      content,
+      parentId
     });
 
     await InteractionEvidenceService.record({
