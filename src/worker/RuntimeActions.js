@@ -276,15 +276,23 @@ class RuntimeActions {
       throw new Error(`Question must be >= ${config.gating.minQuestionLen} chars`);
     }
 
-    // Auto-thread: if replying to a specific comment or there are existing comments,
-    // set parent_id to create conversation chains
+    // Determine if this should be a reply or a new top-level question:
+    // - If the LLM explicitly set parentId, use it
+    // - If the content references someone (@name), it's a reply → thread it
+    // - Otherwise, ~30% chance of new top-level question, 70% reply to conversation
     let parentId = args.parentId || args.parent_id || null;
     if (!parentId) {
-      const lastComment = await queryOne(
-        'SELECT id FROM comments WHERE post_id = $1 ORDER BY created_at DESC LIMIT 1',
-        [dropThread.id]
-      );
-      parentId = lastComment?.id || null;
+      const isReplyContent = content.startsWith('@') || content.includes('@');
+      const shouldThread = isReplyContent || Math.random() < 0.7;
+
+      if (shouldThread) {
+        const lastComment = await queryOne(
+          'SELECT id FROM comments WHERE post_id = $1 ORDER BY created_at DESC LIMIT 1',
+          [dropThread.id]
+        );
+        parentId = lastComment?.id || null;
+      }
+      // else: parentId stays null → new top-level question
     }
 
     const comment = await CommentService.create({

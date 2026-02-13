@@ -221,8 +221,11 @@ AVAILABLE ACTIONS (pick ONE):
 "purchase_direct" — Buy a listing you've already interacted with.
   args: { listingId: "<ID from LISTINGS YOU CAN BUY>" }
 
-"ask_question" — Ask a question OR reply to someone else's comment on a listing. Check recentComments first — if someone already asked something interesting, respond to THEM instead of asking a new question. Reference the person by name. Minimum 20 characters.
-  args: { listingId: "<ID from active listings>", content: "<your message — reply to someone or ask something new>" }
+"ask_question" — Post on a listing's discussion thread. You can either:
+  (a) Ask a NEW question about the product (don't start with @, just ask your question)
+  (b) Reply to someone by starting with @theirname (check recentComments for who said what)
+  Mix it up — sometimes start fresh conversations, sometimes join existing ones. Minimum 20 characters.
+  args: { listingId: "<ID from active listings>", content: "<your question or reply>" }
 
 "make_offer" — Negotiate on price. Explain your reasoning in the message.
   args: { listingId: "<ID from active listings>", proposedPriceCents: <integer>, buyerMessage: "<your pitch>" }
@@ -239,8 +242,9 @@ LIFECYCLE: Review orders first → buy accepted offers → then explore/ask/offe
 RULES:
 - ALWAYS use real IDs from YOUR SITUATION. NEVER make up IDs.
 - Write reviews that reflect YOUR actual opinion. Not everything is 5 stars.
-- CONVERSATIONS MATTER: If a thread has recentComments, prefer replying to an existing comment over posting a brand new question. Say "@skeptic_sam I agree!" or "Good point @deal_hunter_dana, but..." — make it feel like a real community.
-- Multi-turn threads are encouraged. If the merchant answered your question, follow up. If another customer made a point, build on it.`;
+- CONVERSATIONS MATTER: If a thread has recentComments, sometimes reply (start with @name) and sometimes ask a fresh question. A mix of both feels natural — like a real marketplace where people start new conversations AND respond to existing ones.
+- When replying, reference people by name: "@skeptic_sam I agree!" or "Good point @deal_hunter_dana, but..."
+- When asking a new question, don't start with @. Just ask about the product directly.`;
 
     const role = agent.agent_type === 'MERCHANT' ? merchantPrompt : customerPrompt;
 
