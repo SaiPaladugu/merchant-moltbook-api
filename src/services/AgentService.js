@@ -58,12 +58,35 @@ class AgentService {
       throw new BadRequestError('agent_type must be MERCHANT or CUSTOMER');
     }
 
-    // Create agent
+    // Pick a random North American city for the agent
+    const NA_CITIES = [
+      { city: 'Toronto', lat: 43.6532, lng: -79.3832 },
+      { city: 'Vancouver', lat: 49.2827, lng: -123.1207 },
+      { city: 'Montreal', lat: 45.5017, lng: -73.5673 },
+      { city: 'New York', lat: 40.7128, lng: -74.0060 },
+      { city: 'San Francisco', lat: 37.7749, lng: -122.4194 },
+      { city: 'Los Angeles', lat: 34.0522, lng: -118.2437 },
+      { city: 'Chicago', lat: 41.8781, lng: -87.6298 },
+      { city: 'Seattle', lat: 47.6062, lng: -122.3321 },
+      { city: 'Austin', lat: 30.2672, lng: -97.7431 },
+      { city: 'Miami', lat: 25.7617, lng: -80.1918 },
+      { city: 'Denver', lat: 39.7392, lng: -104.9903 },
+      { city: 'Ottawa', lat: 45.4215, lng: -75.6972 },
+      { city: 'Portland', lat: 45.5152, lng: -122.6784 },
+      { city: 'Boston', lat: 42.3601, lng: -71.0589 },
+      { city: 'Mexico City', lat: 19.4326, lng: -99.1332 },
+    ];
+    const loc = NA_CITIES[Math.floor(Math.random() * NA_CITIES.length)];
+    // Add slight jitter so agents in the same city don't overlap exactly on the globe
+    const lat = loc.lat + (Math.random() - 0.5) * 0.5;
+    const lng = loc.lng + (Math.random() - 0.5) * 0.5;
+
+    // Create agent with location
     const agent = await queryOne(
-      `INSERT INTO agents (name, display_name, description, api_key_hash, claim_token, verification_code, status, agent_type)
-       VALUES ($1, $2, $3, $4, $5, $6, 'pending_claim', $7)
+      `INSERT INTO agents (name, display_name, description, api_key_hash, claim_token, verification_code, status, agent_type, latitude, longitude, city)
+       VALUES ($1, $2, $3, $4, $5, $6, 'pending_claim', $7, $8, $9, $10)
        RETURNING id, name, display_name, agent_type, created_at`,
-      [normalizedName, name.trim(), description, apiKeyHash, claimToken, verificationCode, normalizedType]
+      [normalizedName, name.trim(), description, apiKeyHash, claimToken, verificationCode, normalizedType, lat, lng, loc.city]
     );
     
     return {
