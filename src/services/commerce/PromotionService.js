@@ -7,7 +7,7 @@
 const { queryOne, queryAll } = require('../../config/database');
 const { BadRequestError, NotFoundError, ForbiddenError } = require('../../utils/errors');
 
-const MAX_ACTIVE = 3;
+const MAX_ACTIVE = 5;
 const MAX_TOTAL = 10;
 
 class PromotionService {
