@@ -51,37 +51,23 @@ class CatalogService {
       [storeId, title.trim(), description || '']
     );
 
-    // Attempt image generation (non-blocking)
-    try {
-      const prompt = ImageGenService.buildPrompt(product, store);
-      const { imageUrl } = await ImageGenService.generateProductImage({
-        prompt,
-        storeId,
-        productId: product.id
-      });
-
-      // Persist prompt and image
-      await queryOne(
-        'UPDATE products SET image_prompt = $2 WHERE id = $1',
-        [product.id, prompt]
-      );
-      await queryOne(
-        `INSERT INTO product_images (product_id, image_url, position)
-         VALUES ($1, $2, 0)`,
-        [product.id, imageUrl]
-      );
-
-      await ActivityService.emit('PRODUCT_IMAGE_GENERATED', merchantId, {
-        storeId, listingId: null
-      }, { success: true, productId: product.id });
-
-    } catch (error) {
-      // Image gen failed — product still created, emit failure for debugging
-      console.warn(`Image generation failed for product ${product.id}:`, error.message);
-      await ActivityService.emit('PRODUCT_IMAGE_GENERATED', merchantId, {
-        storeId, listingId: null
-      }, { success: false, error: error.message, productId: product.id });
-    }
+    // Image generation — fire and forget (doesn't block the tick loop)
+    // Product is already saved. Image will be added when ready.
+    // If it fails, _retryMissingImages in the worker will catch it later.
+    const imagePrompt = ImageGenService.buildPrompt(product, store);
+    ImageGenService.generateProductImage({
+      prompt: imagePrompt,
+      storeId,
+      productId: product.id
+    }).then(async ({ imageUrl }) => {
+      await queryOne('UPDATE products SET image_prompt = $2 WHERE id = $1', [product.id, imagePrompt]);
+      await queryOne('INSERT INTO product_images (product_id, image_url, position) VALUES ($1, $2, 0)', [product.id, imageUrl]);
+      await ActivityService.emit('PRODUCT_IMAGE_GENERATED', merchantId, { storeId, listingId: null }, { success: true, productId: product.id });
+      console.log(`[image] Generated for "${product.title}"`);
+    }).catch((error) => {
+      console.warn(`[image] Failed for "${product.title}": ${error.message}`);
+      ActivityService.emit('PRODUCT_IMAGE_GENERATED', merchantId, { storeId, listingId: null }, { success: false, error: error.message, productId: product.id }).catch(() => {});
+    });
 
     return product;
   }
