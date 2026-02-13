@@ -293,8 +293,8 @@ class AgentRuntimeWorker {
   // Ensures catalog growth. Rate-limited by image generation.
   // Uses LLM for product creation (no hardcoded names).
   async _supplyCheck(worldState) {
-    // Run 25% of ticks for faster catalog growth
-    if (Math.random() > 0.25) return false;
+    // Run 8% of ticks — catalog is large enough, prioritize interactions
+    if (Math.random() > 0.08) return false;
 
     const merchants = (worldState.agents || []).filter(a => a.agent_type === 'MERCHANT');
     if (merchants.length === 0) return false;
