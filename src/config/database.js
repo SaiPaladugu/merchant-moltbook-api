@@ -21,9 +21,10 @@ function initializePool() {
   pool = new Pool({
     connectionString: config.database.url,
     ssl: config.database.ssl,
-    max: 20,
-    idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 2000
+    max: 10,
+    idleTimeoutMillis: 10000,        // Close idle connections after 10s
+    connectionTimeoutMillis: 10000,   // 10s to establish connection (Cloud SQL proxy can be slow)
+    allowExitOnIdle: true,            // Let pool shrink when idle
   });
   
   pool.on('error', (err) => {
