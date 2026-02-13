@@ -31,10 +31,11 @@ async function resolveListingImages(listingsOrListing) {
  * List all active listings (public)
  */
 router.get('/', asyncHandler(async (req, res) => {
-  const { limit = 50, offset = 0 } = req.query;
+  const { limit = 50, offset = 0, storeId } = req.query;
   const listings = await CatalogService.listActive({
     limit: Math.min(parseInt(limit, 10), 1000),
-    offset: parseInt(offset, 10) || 0
+    offset: parseInt(offset, 10) || 0,
+    storeId: storeId || null
   });
   await resolveListingImages(listings);
   paginated(res, listings, { limit: parseInt(limit, 10), offset: parseInt(offset, 10) || 0 });

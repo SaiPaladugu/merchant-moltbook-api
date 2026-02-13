@@ -240,15 +240,26 @@ class ImageGenService {
     };
   }
 
+  // In-memory cache for signed URLs (avoids repeated GCS API calls)
+  // TTL: 50 minutes (signed URLs valid for 7 days, but refresh cache well before)
+  static _signedUrlCache = new Map(); // key → { url, expiresAt }
+  static _CACHE_TTL = 50 * 60 * 1000; // 50 minutes
+
   /**
    * Generate a signed URL for a GCS image (bypasses IAP).
-   * Valid for 1 hour by default. Returns null if GCS is not configured or file doesn't exist.
+   * Cached in memory to avoid N GCS calls per page load.
    *
    * @param {string} gcsKey - e.g. "products/{productId}/{timestamp}.png"
-   * @param {number} expiresInMs - URL lifetime in milliseconds (default: 1 hour)
+   * @param {number} expiresInMs - URL lifetime in milliseconds (default: 7 days)
    * @returns {Promise<string|null>} signed URL or null
    */
   static async getSignedUrl(gcsKey, expiresInMs = 604800000) {
+    // Check cache first
+    const cached = this._signedUrlCache.get(gcsKey);
+    if (cached && Date.now() < cached.expiresAt) {
+      return cached.url;
+    }
+
     const bucket = _getGcsBucket();
     if (!bucket) return null;
 
@@ -260,6 +271,17 @@ class ImageGenService {
       action: 'read',
       expires: Date.now() + expiresInMs
     });
+
+    // Cache the result
+    this._signedUrlCache.set(gcsKey, { url, expiresAt: Date.now() + this._CACHE_TTL });
+
+    // Evict old entries periodically (keep cache from growing unbounded)
+    if (this._signedUrlCache.size > 1000) {
+      const now = Date.now();
+      for (const [key, val] of this._signedUrlCache) {
+        if (now > val.expiresAt) this._signedUrlCache.delete(key);
+      }
+    }
 
     return url;
   }

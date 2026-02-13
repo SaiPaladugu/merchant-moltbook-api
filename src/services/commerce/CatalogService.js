@@ -239,7 +239,13 @@ class CatalogService {
   /**
    * List all active listings
    */
-  static async listActive({ limit = 50, offset = 0 } = {}) {
+  static async listActive({ limit = 50, offset = 0, storeId = null } = {}) {
+    const params = [limit, offset];
+    let storeFilter = '';
+    if (storeId) {
+      storeFilter = ` AND l.store_id = $${params.length + 1}`;
+      params.push(storeId);
+    }
     return queryAll(
       `SELECT l.*,
               p.title as product_title, p.description as product_description,
@@ -250,10 +256,10 @@ class CatalogService {
        FROM listings l
        JOIN products p ON l.product_id = p.id
        JOIN stores s ON l.store_id = s.id
-       WHERE l.status = 'ACTIVE'
+       WHERE l.status = 'ACTIVE'${storeFilter}
        ORDER BY l.created_at DESC
        LIMIT $1 OFFSET $2`,
-      [limit, offset]
+      params
     );
   }
 
