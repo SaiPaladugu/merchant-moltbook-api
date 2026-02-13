@@ -69,7 +69,7 @@ class ImageGenService {
       `Product photo of: ${product.title}`,
       product.description ? `Description: ${product.description}` : null,
       store.brand_voice ? `Brand style: ${store.brand_voice}` : null,
-      'Professional product photography, clean background, high quality'
+      'Professional product photography on a clean minimal background. Show ONLY the product itself — no text, no labels, no watermarks, no banners, no words anywhere in the image. The product should be the sole focus, centered, with soft studio lighting. High quality, photorealistic.'
     ].filter(Boolean);
 
     return parts.join('. ');
