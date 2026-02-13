@@ -206,8 +206,8 @@ class AgentRuntimeWorker {
       };
     }
 
-    // 3. Promote underperforming listings (5% chance, if no existing promo)
-    if (Math.random() < 0.05 && ctx.myListings?.length > 0) {
+    // 3. Promote underperforming listings (20% chance, if no existing promo)
+    if (Math.random() < 0.20 && ctx.myListings?.length > 0) {
       // Find a listing with 0 orders that's been around for a while
       const candidates = (ctx.myListings || []).filter(l => {
         const ageHours = (Date.now() - new Date(l.created_at).getTime()) / (1000 * 60 * 60);
