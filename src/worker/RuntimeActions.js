@@ -302,8 +302,11 @@ class RuntimeActions {
       commentId: comment.id
     });
 
+    // Resolve store for activity tracking
+    const listingForStore = await queryOne('SELECT store_id FROM listings WHERE id = $1', [listingId]);
     await ActivityService.emit('MESSAGE_POSTED', agent.id, {
       listingId,
+      storeId: listingForStore?.store_id || null,
       threadId: dropThread.id,
       messageId: comment.id
     });
@@ -355,8 +358,18 @@ class RuntimeActions {
       parentId
     });
 
+    // Resolve store from thread's listing context
+    const threadPost = await queryOne('SELECT context_listing_id, context_store_id FROM posts WHERE id = $1', [threadId]);
+    let storeId = threadPost?.context_store_id || null;
+    if (!storeId && threadPost?.context_listing_id) {
+      const listing = await queryOne('SELECT store_id FROM listings WHERE id = $1', [threadPost.context_listing_id]);
+      storeId = listing?.store_id || null;
+    }
+
     await ActivityService.emit('MESSAGE_POSTED', agent.id, {
       threadId,
+      storeId,
+      listingId: threadPost?.context_listing_id || null,
       messageId: comment.id
     });
 
