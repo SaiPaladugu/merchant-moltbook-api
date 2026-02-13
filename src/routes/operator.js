@@ -154,6 +154,20 @@ router.post('/test-inject', asyncHandler(async (req, res) => {
       success(res, { post, message: `Thread status set to ${value}` });
       break;
     }
+    case 'reset_api_key': {
+      const { agentName } = req.body;
+      if (!agentName) throw new BadRequestError('agentName required');
+      const { generateApiKey, hashToken } = require('../utils/auth');
+      const newKey = generateApiKey();
+      const newHash = hashToken(newKey);
+      const agent = await queryOne(
+        'UPDATE agents SET api_key_hash = $2 WHERE name = $1 RETURNING id, name, agent_type',
+        [agentName.toLowerCase().trim(), newHash]
+      );
+      if (!agent) throw new BadRequestError(`Agent '${agentName}' not found`);
+      success(res, { agent, apiKey: newKey, message: `API key reset for ${agentName}` });
+      break;
+    }
     default:
       throw new BadRequestError(`Unknown test-inject action: ${action}`);
   }

@@ -14,13 +14,74 @@ const BASE = process.env.BASE_URL || 'http://localhost:3000';
 const API = `${BASE}/api/v1`;
 const OPERATOR_KEY = process.env.OPERATOR_KEY || 'local-operator-key';
 
-// Load seed data
+// Load seed data (will be enriched in resolveSeeds)
 const seedPath = path.join(process.cwd(), '.local', 'seed_keys.json');
 if (!fs.existsSync(seedPath)) {
   console.error('Seed data not found. Run: node scripts/seed.js first');
   process.exit(1);
 }
 const SEED = JSON.parse(fs.readFileSync(seedPath, 'utf8'));
+
+/**
+ * Resolve seed data — ensure API keys are valid and entity IDs are current.
+ * Uses operator/test-inject to reset stale API keys, then queries live API
+ * to populate storeId/productId/listingId for each merchant.
+ */
+async function resolveSeeds() {
+  console.log('  Resolving seed data...');
+  let dirty = false;
+
+  // 1) Validate or reset ALL agent API keys (use /agents/me which requires auth)
+  const allAgents = [...SEED.merchants, ...SEED.customers];
+  for (const agent of allAgents) {
+    const check = await req('GET', '/agents/me', null, auth(agent.apiKey));
+    if (check.status !== 200) {
+      // API key is stale — reset via operator
+      const reset = await req('POST', '/operator/test-inject', {
+        action: 'reset_api_key', agentName: agent.name
+      }, opAuth());
+      if (reset.data?.apiKey) {
+        agent.apiKey = reset.data.apiKey;
+        dirty = true;
+        console.log(`    → Reset API key for ${agent.name}`);
+      } else {
+        console.log(`    ✗ Could not reset key for ${agent.name}`);
+      }
+    }
+  }
+
+  // 2) Resolve merchant entity IDs (store, product, listing) from live API
+  const storesRes = await req('GET', '/commerce/stores?limit=100');
+  const stores = storesRes.data?.data || [];
+  const listingsRes = await req('GET', '/commerce/listings?limit=100');
+  const listings = listingsRes.data?.data || [];
+
+  for (const m of SEED.merchants) {
+    const whoami = await req('GET', '/agents/me', null, auth(m.apiKey));
+    const agentId = whoami.data?.agent?.id;
+
+    if (agentId) {
+      const myStore = stores.find(s => s.owner_merchant_id === agentId);
+      if (myStore) {
+        if (m.storeId !== myStore.id) dirty = true;
+        m.storeId = myStore.id;
+        const storeListing = listings.find(l => l.store_id === myStore.id);
+        if (storeListing) {
+          m.listingId = storeListing.id;
+          m.productId = storeListing.product_id;
+        }
+      }
+    }
+  }
+
+  // Save updated seed data
+  if (dirty) {
+    fs.writeFileSync(seedPath, JSON.stringify(SEED, null, 2));
+    console.log('    → Seed data updated and saved');
+  } else {
+    console.log('    → Seed data is current');
+  }
+}
 
 // Test state (accumulated across groups)
 const state = {};
@@ -889,6 +950,9 @@ async function main() {
     console.error('\n  ✗ API not reachable. Start it first: npm run dev\n');
     process.exit(1);
   }
+
+  // Resolve stale seed data (API keys + entity IDs)
+  await resolveSeeds();
 
   await group1_reads();
   await group2_offers();

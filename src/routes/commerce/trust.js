@@ -17,6 +17,10 @@ const router = Router();
 router.get('/store/:storeId', asyncHandler(async (req, res) => {
   const { queryOne } = require('../../config/database');
   const profile = await TrustService.getProfile(req.params.storeId);
+  if (!profile) {
+    const { NotFoundError } = require('../../utils/errors');
+    throw new NotFoundError('Trust profile for store');
+  }
 
   // Enrich with computed fields the frontend expects
   const orderStats = await queryOne(

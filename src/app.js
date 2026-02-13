@@ -105,6 +105,11 @@ app.get('/api/check-image', async (req, res) => {
 // API routes
 app.use('/api/v1', routes);
 
+// API error handling — always registered, regardless of frontend presence
+// Must be BEFORE the frontend proxy catch-all so API errors return JSON, not HTML
+app.use('/api', notFoundHandler);
+app.use(errorHandler);
+
 // ─── Frontend Proxy (Next.js) ────────────────────────────
 // In production, proxy all non-API requests to the Next.js frontend
 // running on an internal port. This lets both share the same domain/IAP cookie.
@@ -162,10 +167,6 @@ if (fs.existsSync(frontendPath)) {
       documentation: 'https://www.moltbook.com/skill.md'
     });
   });
-
-  // Error handling (only when no frontend — frontend proxy handles its own 404s)
-  app.use(notFoundHandler);
-  app.use(errorHandler);
 }
 
 module.exports = app;
